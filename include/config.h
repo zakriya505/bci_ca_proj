@@ -12,6 +12,10 @@
 #define BETA_LOW_FREQ       13.0f   /* Hz */
 #define BETA_HIGH_FREQ      30.0f   /* Hz */
 
+/* ========== FFT Configuration ========== */
+/* Enable FFT-based band power calculation (more accurate) */
+#define USE_FFT_BANDPOWER    1      /* Set to 0 for faster approximate method */
+
 /* ========== Signal Amplitudes ========== */
 #define ALPHA_AMPLITUDE     50.0f   /* microvolts */
 #define BETA_AMPLITUDE      30.0f   /* microvolts */

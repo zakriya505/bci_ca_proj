@@ -32,4 +32,8 @@ float get_time_sec(void);
 #define COLOR_CYAN    "\033[36m"
 #define COLOR_WHITE   "\033[37m"
 
+/* Logging macros */
+#define log_info(fmt, ...)  printf(COLOR_BLUE "[INFO] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
+#define log_error(fmt, ...) fprintf(stderr, COLOR_RED "[ERROR] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
+
 #endif /* UTILS_H */

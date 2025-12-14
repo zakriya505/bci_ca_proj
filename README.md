@@ -106,6 +106,10 @@ bci_ca_proj/
 ├── include/       # Header files
 ├── tests/         # Unit tests
 ├── scripts/       # Python visualization
+├── data/          # EEG datasets (organized)
+│   ├── raw/       # Original datasets
+│   ├── test_cases/# Test-specific data
+│   └── validation/# Integration tests
 └── bin/           # Compiled executables
 ```
 

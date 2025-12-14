@@ -1,4 +1,5 @@
 #include "feature_extraction.h"
+#include "fft.h"
 #include "utils.h"
 #include <math.h>
 
@@ -26,56 +27,78 @@ signal_t calculate_variance(const signal_t *signal, size_t length) {
     return variance / length;
 }
 
-signal_t calculate_band_power(const signal_t *signal, size_t length,
-                              float low_freq, float high_freq) {
-    /* Band power calculation using frequency-domain approximation */
-    /* This uses a simplified approach: estimate power contribution from frequency band */
-    /* In a full implementation, this would use FFT */
+signal_t calculate_skewness(const signal_t *signal, size_t length) {
+    /* Skewness: measure of asymmetry of the signal distribution */
+    /* skewness = E[(X - μ)³] / σ³ */
     
-    signal_t power = 0.0f;
+    signal_t mean = calculate_mean(signal, length);
+    signal_t variance = calculate_variance(signal, length);
+    signal_t std_dev = sqrtf(variance);
     
-    /* Calculate power with frequency weighting */
-    /* We approximate the band contribution by analyzing signal characteristics */
-    
-    /* Center frequency of the band */
-    float center_freq = (low_freq + high_freq) / 2.0f;
-    
-    /* For alpha band (8-13 Hz, center ~10.5 Hz): slower oscillations */
-    /* For beta band (13-30 Hz, center ~21.5 Hz): faster oscillations */
-    
-    /* Calculate power weighted by frequency content */
-    /* We use successive differences to estimate frequency content */
-    signal_t weighted_power = 0.0f;
-    
-    if (center_freq < 15.0f) {
-        /* Alpha band - favor smoother signals */
-        for (size_t i = 0; i < length; i++) {
-            weighted_power += signal[i] * signal[i];
-        }
-        /* Penalize rapid changes (high frequency content) - increased weight */
-        for (size_t i = 1; i < length; i++) {
-            signal_t diff = signal[i] - signal[i-1];
-            weighted_power -= fabsf(diff) * 0.5f;  /* Increased from 0.3f */
-        }
-    } else {
-        /* Beta band - favor faster oscillations */
-        for (size_t i = 0; i < length; i++) {
-            weighted_power += signal[i] * signal[i];
-        }
-        /* Reward rapid changes (high frequency content) - increased weight */
-        for (size_t i = 1; i < length; i++) {
-            signal_t diff = signal[i] - signal[i-1];
-            weighted_power += fabsf(diff) * 0.4f;  /* Increased from 0.2f */
-        }
+    /* Avoid division by zero */
+    if (std_dev < 0.001f) {
+        return 0.0f;
     }
     
-    /* Normalize by length */
-    power = weighted_power / length;
+    signal_t skewness = 0.0f;
+    for (size_t i = 0; i < length; i++) {
+        signal_t diff = signal[i] - mean;
+        signal_t normalized = diff / std_dev;
+        skewness += normalized * normalized * normalized;
+    }
     
-    /* Ensure non-negative */
-    if (power < 0.0f) power = 0.0f;
-    
-    return power;
+    return skewness / length;
+}
+
+signal_t calculate_band_power(const signal_t *signal, size_t length,
+                              float low_freq, float high_freq) {
+    /* Use FFT-based Power Spectral Density for accurate band power */
+    #ifdef USE_FFT_BANDPOWER
+        /* Use FFT for accurate frequency analysis */
+        return calculate_band_power_fft(signal, length, SAMPLING_RATE, 
+                                       low_freq, high_freq);
+    #else
+        /* Fallback: simplified approximation (faster but less accurate) */
+        /* This uses a simplified approach: estimate power contribution from frequency band */
+        
+        signal_t power = 0.0f;
+        
+        /* Center frequency of the band */
+        float center_freq = (low_freq + high_freq) / 2.0f;
+        
+        /* Calculate power weighted by frequency content */
+        signal_t weighted_power = 0.0f;
+        
+        if (center_freq < 15.0f) {
+            /* Alpha band - favor smoother signals */
+            for (size_t i = 0; i < length; i++) {
+                weighted_power += signal[i] * signal[i];
+            }
+            /* Penalize rapid changes (high frequency content) */
+            for (size_t i = 1; i < length; i++) {
+                signal_t diff = signal[i] - signal[i-1];
+                weighted_power -= fabsf(diff) * 0.5f;
+            }
+        } else {
+            /* Beta band - favor faster oscillations */
+            for (size_t i = 0; i < length; i++) {
+                weighted_power += signal[i] * signal[i];
+            }
+            /* Reward rapid changes (high frequency content) */
+            for (size_t i = 1; i < length; i++) {
+                signal_t diff = signal[i] - signal[i-1];
+                weighted_power += fabsf(diff) * 0.4f;
+            }
+        }
+        
+        /* Normalize by length */
+        power = weighted_power / length;
+        
+        /* Ensure non-negative */
+        if (power < 0.0f) power = 0.0f;
+        
+        return power;
+    #endif
 }
 
 signal_t detect_peak_amplitude(const signal_t *signal, size_t length) {
