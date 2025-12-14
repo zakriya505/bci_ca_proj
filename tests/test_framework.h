@@ -65,4 +65,12 @@ static int tests_failed = 0;
     printf("════════════════════════════════════════════════════════════════\n\n"); \
 } while(0)
 
+#define TEST_ASSERT(condition, message) ASSERT_TRUE(condition, message)
+
+#define TEST_PASS(message) do { \
+    tests_run++; \
+    tests_passed++; \
+    printf("  ✓ PASS: %s\n", message); \
+} while(0)
+
 #endif /* TEST_FRAMEWORK_H */

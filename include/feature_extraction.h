@@ -20,6 +20,9 @@ signal_t detect_peak_amplitude(const signal_t *signal, size_t length);
 /* Calculate mean of signal */
 signal_t calculate_mean(const signal_t *signal, size_t length);
 
+/* Calculate skewness (asymmetry) of signal distribution */
+signal_t calculate_skewness(const signal_t *signal, size_t length);
+
 /* Extract all features from preprocessed signal */
 void extract_features(const signal_t *signal, size_t length, features_t *features);
 
