@@ -22,7 +22,8 @@
 #define FOCUS_THRESHOLD     0.6f    /* Beta power ratio */
 #define RELAX_THRESHOLD     0.6f    /* Alpha power ratio */
 #define BLINK_THRESHOLD     3.0f    /* Amplitude multiplier above baseline */
-#define DEBOUNCE_COUNT      3       /* Consecutive samples needed */
+#define DEBOUNCE_COUNT      2       /* Consecutive samples needed (reduced for faster response) */
+
 
 /* ========== Filter Parameters ========== */
 #define MA_FILTER_SIZE      5       /* Moving average window */
@@ -34,9 +35,9 @@
 #define BUZZER_DURATION_MS  200
 
 /* ========== Debug Options ========== */
-#define DEBUG_SIGNALS       1       /* Print signal values */
-#define DEBUG_FEATURES      1       /* Print extracted features */
-#define DEBUG_COMMANDS      1       /* Print detected commands */
+#define DEBUG_SIGNALS       0       /* Print signal values */
+#define DEBUG_FEATURES      0       /* Print extracted features */
+#define DEBUG_COMMANDS      0       /* Print detected commands */
 
 /* ========== Mathematical Constants ========== */
 #ifndef M_PI
