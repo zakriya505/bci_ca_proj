@@ -7,7 +7,7 @@ A Brain-Computer Interface implementation that detects mental commands from simu
 Detects 3 mental commands from brain signals:
 - **FOCUS** (beta waves) → LED ON
 - **RELAX** (alpha waves) → LED OFF  
-- **BLINK** (spike) → Buzzer + Cursor move
+- **BLINK** (spike) → Buzzer + Cursor moves
 
 No hardware needed - uses simulated EEG data.
 
