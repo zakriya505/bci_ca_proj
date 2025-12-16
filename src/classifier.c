@@ -59,3 +59,57 @@ const char* command_to_string(command_t cmd) {
         default:        return "NONE";
     }
 }
+
+void predict_impairments(const features_t *features, predictions_t *predictions) {
+    /* Visual Impairment Detection
+     * Based on alpha power in occipital lobe
+     * Low alpha during relaxed states indicates visual processing issues
+     */
+    if (features->alpha_power >= VISUAL_ALPHA_NORMAL) {
+        predictions->visual_impairment = PRED_NORMAL;
+    } else if (features->alpha_power >= VISUAL_ALPHA_BORDERLINE) {
+        predictions->visual_impairment = PRED_BORDERLINE;
+    } else {
+        predictions->visual_impairment = PRED_IMPAIRED;
+    }
+    
+    /* Motor Impairment Detection
+     * Based on beta/mu rhythm in motor cortex
+     * Abnormal beta power indicates motor control issues
+     */
+    if (features->beta_power >= MOTOR_BETA_NORMAL) {
+        predictions->motor_impairment = PRED_NORMAL;
+    } else if (features->beta_power >= MOTOR_BETA_BORDERLINE) {
+        predictions->motor_impairment = PRED_BORDERLINE;
+    } else {
+        predictions->motor_impairment = PRED_IMPAIRED;
+    }
+    
+    /* Attention Deficit Detection
+     * Based on theta/beta ratio in frontal lobe
+     * High theta/beta ratio indicates attention problems
+     */
+    signal_t theta_beta_ratio = 0.0f;
+    if (features->beta_power > 0.01f) {
+        theta_beta_ratio = features->theta_power / features->beta_power;
+    } else {
+        theta_beta_ratio = 10.0f;  /* Very high ratio if beta is negligible */
+    }
+    
+    if (theta_beta_ratio <= ATTENTION_RATIO_NORMAL) {
+        predictions->attention_deficit = PRED_NORMAL;
+    } else if (theta_beta_ratio <= ATTENTION_RATIO_BORDER) {
+        predictions->attention_deficit = PRED_BORDERLINE;
+    } else {
+        predictions->attention_deficit = PRED_IMPAIRED;
+    }
+}
+
+const char* prediction_to_string(prediction_t pred) {
+    switch (pred) {
+        case PRED_NORMAL:     return "NORMAL";
+        case PRED_BORDERLINE: return "BORDERLINE";
+        case PRED_IMPAIRED:   return "IMPAIRED";
+        default:              return "UNKNOWN";
+    }
+}

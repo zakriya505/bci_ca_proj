@@ -21,13 +21,29 @@ typedef enum {
     CMD_BLINK       /* Sharp spike - trigger action */
 } command_t;
 
-/* Mental state representation */
+/* Health prediction types */
+typedef enum {
+    PRED_NORMAL = 0,     /* Normal/healthy */
+    PRED_BORDERLINE,     /* Borderline condition */
+    PRED_IMPAIRED        /* Impairment detected */
+} prediction_t;
+
+/* Mental state representation with extended frequency bands */
 typedef struct {
+    signal_t theta_power;    /* Power in theta band (4-8 Hz) */
     signal_t alpha_power;    /* Power in alpha band (8-13 Hz) */
     signal_t beta_power;     /* Power in beta band (13-30 Hz) */
+    signal_t gamma_power;    /* Power in gamma band (30-50 Hz) */
     signal_t peak_amplitude; /* Maximum amplitude for blink detection */
     signal_t variance;       /* Signal variance */
 } features_t;
+
+/* Health predictions based on EEG patterns */
+typedef struct {
+    prediction_t visual_impairment;    /* Visual processing capability */
+    prediction_t motor_impairment;     /* Motor control capability */
+    prediction_t attention_deficit;    /* Attention and focus capability */
+} predictions_t;
 
 /* Output device states */
 typedef struct {

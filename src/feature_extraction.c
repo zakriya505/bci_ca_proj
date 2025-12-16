@@ -115,13 +115,21 @@ signal_t detect_peak_amplitude(const signal_t *signal, size_t length) {
 }
 
 void extract_features(const signal_t *signal, size_t length, features_t *features) {
-    /* Extract alpha band power (8-13 Hz) */
+    /* Extract theta band power (4-8 Hz) - attention, drowsiness */
+    features->theta_power = calculate_band_power(signal, length, 
+                                                 THETA_LOW_FREQ, THETA_HIGH_FREQ);
+    
+    /* Extract alpha band power (8-13 Hz) - relaxation, visual processing */
     features->alpha_power = calculate_band_power(signal, length, 
                                                  ALPHA_LOW_FREQ, ALPHA_HIGH_FREQ);
     
-    /* Extract beta band power (13-30 Hz) */
+    /* Extract beta band power (13-30 Hz) - focus, motor control */
     features->beta_power = calculate_band_power(signal, length,
                                                 BETA_LOW_FREQ, BETA_HIGH_FREQ);
+    
+    /* Extract gamma band power (30-50 Hz) - cognitive function */
+    features->gamma_power = calculate_band_power(signal, length,
+                                                 GAMMA_LOW_FREQ, GAMMA_HIGH_FREQ);
     
     /* Detect peak amplitude for blink detection */
     features->peak_amplitude = detect_peak_amplitude(signal, length);
@@ -130,13 +138,19 @@ void extract_features(const signal_t *signal, size_t length, features_t *feature
     features->variance = calculate_variance(signal, length);
     
     /* Normalize powers to get relative ratios */
-    signal_t total_power = features->alpha_power + features->beta_power;
+    signal_t total_power = features->theta_power + features->alpha_power + 
+                          features->beta_power + features->gamma_power;
+    
     if (total_power > 0.01f) {  /* Increased threshold for more robust error handling */
+        features->theta_power /= total_power;
         features->alpha_power /= total_power;
         features->beta_power /= total_power;
+        features->gamma_power /= total_power;
     } else {
         /* No significant power detected, set to neutral values */
-        features->alpha_power = 0.5f;
-        features->beta_power = 0.5f;
+        features->theta_power = 0.25f;
+        features->alpha_power = 0.25f;
+        features->beta_power = 0.25f;
+        features->gamma_power = 0.25f;
     }
 }

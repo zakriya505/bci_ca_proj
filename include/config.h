@@ -7,10 +7,14 @@
 #define SIGNAL_DURATION     10      /* seconds for demo */
 
 /* ========== Frequency Bands ========== */
-#define ALPHA_LOW_FREQ      8.0f    /* Hz */
+#define THETA_LOW_FREQ      4.0f    /* Hz - attention, drowsiness */
+#define THETA_HIGH_FREQ     8.0f    /* Hz */
+#define ALPHA_LOW_FREQ      8.0f    /* Hz - relaxation, visual processing */
 #define ALPHA_HIGH_FREQ     13.0f   /* Hz */
-#define BETA_LOW_FREQ       13.0f   /* Hz */
+#define BETA_LOW_FREQ       13.0f   /* Hz - focus, motor control */
 #define BETA_HIGH_FREQ      30.0f   /* Hz */
+#define GAMMA_LOW_FREQ      30.0f   /* Hz - cognitive function */
+#define GAMMA_HIGH_FREQ     50.0f   /* Hz */
 
 /* ========== FFT Configuration ========== */
 /* Enable FFT-based band power calculation (more accurate) */
@@ -27,6 +31,19 @@
 #define RELAX_THRESHOLD     0.6f    /* Alpha power ratio */
 #define BLINK_THRESHOLD     3.0f    /* Amplitude multiplier above baseline */
 #define DEBOUNCE_COUNT      2       /* Consecutive samples needed (reduced for faster response) */
+
+/* ========== Health Prediction Thresholds ========== */
+/* Visual Impairment: Low alpha during relaxed states (occipital lobe) */
+#define VISUAL_ALPHA_NORMAL      0.35f   /* Normal alpha power threshold */
+#define VISUAL_ALPHA_BORDERLINE  0.25f   /* Borderline threshold */
+
+/* Motor Impairment: Abnormal beta/mu rhythm (motor cortex) */
+#define MOTOR_BETA_NORMAL        0.30f   /* Normal beta power threshold */
+#define MOTOR_BETA_BORDERLINE    0.20f   /* Borderline threshold */
+
+/* Attention Deficit: High theta/beta ratio (frontal lobe) */
+#define ATTENTION_RATIO_NORMAL   1.5f    /* Normal theta/beta ratio */
+#define ATTENTION_RATIO_BORDER   2.0f    /* Borderline ratio */
 
 
 /* ========== Filter Parameters ========== */

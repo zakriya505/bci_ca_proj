@@ -23,4 +23,10 @@ const char* command_to_string(command_t cmd);
 /* Update classifier baseline */
 void update_baseline(classifier_state_t *state, signal_t amplitude);
 
+/* Predict health impairments based on EEG features */
+void predict_impairments(const features_t *features, predictions_t *predictions);
+
+/* Get string representation of prediction */
+const char* prediction_to_string(prediction_t pred);
+
 #endif /* CLASSIFIER_H */

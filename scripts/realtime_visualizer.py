@@ -1,261 +1,243 @@
 #!/usr/bin/env python3
 """
-Real-time BCI Waveform Visualization System
-Displays EEG signals, frequency spectrum, and classification results
-Like modern professional BCI systems
-
-SUPPORTS:
-- Test mode: Generates simulated signals
-- File mode: Loads EEG data from CSV/Excel files
+Real-time BCI Waveform Visualization System with Health Predictions
+Displays EEG signals, 4 frequency bands, and 3 health predictions
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.gridspec import GridSpec
-from scipy import signal
 from scipy.fft import fft, fftfreq
-import subprocess
-import threading
 import queue
 import time
-import re
-import os
-import sys
-
-# Optional: pandas for CSV/Excel loading
-try:
-    import pandas as pd
-    HAS_PANDAS = True
-except ImportError:
-    HAS_PANDAS = False
 
 class BCIVisualizer:
     def __init__(self):
         # Configuration
-        self.sampling_rate = 256  # Hz
-        self.window_size = 256  # samples
-        self.display_seconds = 3  # seconds to display
-        self.update_interval = 50  # ms
+        self.sampling_rate = 256
+        self.window_size = 256
+        self.display_seconds = 3
+        self.update_interval = 50
         
-        # Data buffers (use deque for O(1) pops)
+        # Data buffers
         from collections import deque
         self.max_points = int(self.sampling_rate * self.display_seconds)
         self.time_data = deque(maxlen=self.max_points)
         self.signal_data = deque(maxlen=self.max_points)
+        self.theta_power_history = deque(maxlen=100)
         self.alpha_power_history = deque(maxlen=100)
         self.beta_power_history = deque(maxlen=100)
-        
-        # Pre-allocate arrays for plotting to avoid list->array conversion overhead
-        self.plot_time = np.zeros(self.max_points)
-        self.plot_signal = np.zeros(self.max_points)
+        self.gamma_power_history = deque(maxlen=100)
         
         # Current state
         self.current_command = "NONE"
-        self.current_alpha = 0.5
-        self.current_beta = 0.5
+        self.current_theta = 0.25
+        self.current_alpha = 0.25
+        self.current_beta = 0.25
+        self.current_gamma = 0.25
         self.led_state = False
-        self.buzzer_active = False
         
-        # Data queue for thread-safe communication
+        # Health predictions
+        self.visual_impairment = "NORMAL"
+        self.motor_impairment = "NORMAL"
+        self.attention_deficit = "NORMAL"
+        
+        # Data queue
         self.data_queue = queue.Queue()
         
-        # Setup the figure
+        # Setup figure
         self.setup_figure()
         
     def setup_figure(self):
-        """Create the professional BCI interface"""
-        # Create figure with dark background
-        self.fig = plt.figure(figsize=(12, 8), facecolor='#1e1e1e')
-        self.fig.canvas.manager.set_window_title('RISC-V Brain-Computer Interface - Real-time Monitor')
+        """Create the BCI interface"""
+        # WHITE background
+        self.fig = plt.figure(figsize=(12, 8), facecolor='white')
+        self.fig.canvas.manager.set_window_title('BCI - Real-time Monitor')
         
-        # Create grid layout (3 columns for bottom section)
-        gs = GridSpec(4, 3, figure=self.fig, hspace=0.4, wspace=0.3,
-                     left=0.05, right=0.95, top=0.90, bottom=0.08)
+        # Grid layout with MORE SPACING
+        gs = GridSpec(5, 4, figure=self.fig, 
+                     hspace=0.8,    # Increased from 0.5 - more vertical space
+                     wspace=0.4,    # Increased from 0.3 - more horizontal space
+                     left=0.06, right=0.94, 
+                     top=0.92,      # More space at top
+                     bottom=0.08)   # More space at bottom
         
-        # 1. Main EEG Waveform (top, spans all 3 columns)
+        # Waveform (BLACK background)
         self.ax_waveform = self.fig.add_subplot(gs[0:2, :])
         self.setup_waveform_plot()
         
-        # 2. Frequency Spectrum (bottom left)
-        self.ax_spectrum = self.fig.add_subplot(gs[2:, 0])
+        # Spectrum (BLACK background)
+        self.ax_spectrum = self.fig.add_subplot(gs[2:4, 0])
         self.setup_spectrum_plot()
         
-        # 3. Feature Blocks (bottom middle) - Split into two rows
-        self.ax_alpha = self.fig.add_subplot(gs[2, 1])
+        # Band powers (WHITE backgrounds)
+        self.ax_theta = self.fig.add_subplot(gs[2, 1])
+        self.ax_alpha = self.fig.add_subplot(gs[2, 2])
         self.ax_beta = self.fig.add_subplot(gs[3, 1])
+        self.ax_gamma = self.fig.add_subplot(gs[3, 2])
         self.setup_feature_blocks()
         
-        # 4. Status Panel (bottom right)
-        self.ax_status = self.fig.add_subplot(gs[2:, 2])
+        # Status panel (WHITE)
+        self.ax_status = self.fig.add_subplot(gs[2:4, 3])
         self.setup_status_panel()
         
+        # Health predictions (WHITE)
+        self.ax_health = self.fig.add_subplot(gs[4, :])
+        self.setup_health_panel()
+        
+        # Add system info at bottom
+        info_text = f'Sampling Rate: {self.sampling_rate} Hz  |  Window Size: {self.window_size} samples  |  Display: {self.display_seconds}s'
+        self.fig.text(0.5, 0.02, info_text, ha='center', va='bottom', 
+                     fontsize=9, color='black', fontweight='bold')
+        
     def setup_waveform_plot(self):
-        """Setup the main EEG waveform display"""
+        """Setup waveform with BLACK axis text"""
         self.ax_waveform.set_facecolor('#0a0a0a')
         self.ax_waveform.set_title('EEG Signal - Time Domain', 
                                    fontsize=12, color='#00ff00', fontweight='bold')
-        self.ax_waveform.set_xlabel('Time (seconds)', color='white')
-        self.ax_waveform.set_ylabel('Amplitude (µV)', color='white')
+        self.ax_waveform.set_xlabel('Time (seconds)', color='black', fontsize=11, fontweight='bold')
+        self.ax_waveform.set_ylabel('Amplitude (µV)', color='black', fontsize=11, fontweight='bold')
         self.ax_waveform.grid(True, alpha=0.2, color='#00ff00', linestyle='--')
-        self.ax_waveform.tick_params(colors='white')
+        self.ax_waveform.tick_params(axis='both', colors='black', labelsize=10, width=2, length=6)
         
-        # Create the line plot
-        self.line_waveform, = self.ax_waveform.plot([], [], color='#00ff00', 
-                                                     linewidth=1.0, label='EEG Signal')
+        # White borders
+        for spine in self.ax_waveform.spines.values():
+            spine.set_edgecolor('white')
+            spine.set_linewidth(2)
         
-        # Autoscaling will handle limits
+        self.line_waveform, = self.ax_waveform.plot([], [], color='#00ff00', linewidth=1.0)
         self.ax_waveform.set_xlim(0, self.display_seconds)
-        self.ax_waveform.set_ylim(-10, 10) # Start small so it expands
+        self.ax_waveform.set_ylim(-10, 10)
         
     def setup_spectrum_plot(self):
-        """Setup frequency spectrum (FFT) display"""
+        """Setup spectrum with BLACK axis text"""
         self.ax_spectrum.set_facecolor('#0a0a0a')
         self.ax_spectrum.set_title('Frequency Spectrum', 
                                    fontsize=10, color='#00ffff', fontweight='bold')
-        self.ax_spectrum.set_xlabel('Frequency (Hz)', color='white')
-        self.ax_spectrum.set_ylabel('Power', color='white')
+        self.ax_spectrum.set_xlabel('Frequency (Hz)', color='black', fontsize=10, fontweight='bold')
+        self.ax_spectrum.set_ylabel('Power', color='black', fontsize=10, fontweight='bold')
         self.ax_spectrum.set_xlim(0, 50)
         self.ax_spectrum.set_ylim(0, 1000)
         self.ax_spectrum.grid(True, alpha=0.2, color='#00ffff', linestyle='--')
-        self.ax_spectrum.tick_params(colors='white')
+        self.ax_spectrum.tick_params(axis='both', colors='black', labelsize=9, width=2, length=6)
+        
+        # White borders
+        for spine in self.ax_spectrum.spines.values():
+            spine.set_edgecolor('white')
+            spine.set_linewidth(2)
         
         self.ax_spectrum.axvspan(8, 13, alpha=0.1, color='yellow')
         self.ax_spectrum.axvspan(13, 30, alpha=0.1, color='cyan')
         self.line_spectrum, = self.ax_spectrum.plot([], [], color='#00ffff', linewidth=1.5)
         
     def setup_feature_blocks(self):
-        """Setup Alpha/Beta feature blocks (Alpha top, Beta bottom)"""
-        # Alpha (Top)
-        self.ax_alpha.set_facecolor('#0a0a0a')
-        self.ax_alpha.set_title('Alpha Power (8-13Hz)', fontsize=10, color='yellow')
+        """Setup 4 band power blocks"""
+        # Theta
+        self.ax_theta.set_facecolor('white')
+        self.ax_theta.set_title('Theta (4-8Hz)', fontsize=8, color='purple', fontweight='bold')
+        self.ax_theta.set_xlim(0, 1.0)
+        self.ax_theta.set_xticks([])
+        self.ax_theta.set_yticks([])
+        for spine in self.ax_theta.spines.values():
+            spine.set_edgecolor('#dddddd')
+        self.bar_theta = self.ax_theta.barh([0], [0.25], color='purple', alpha=0.8, height=0.5)
+        self.text_theta = self.ax_theta.text(0.5, 0, '0.25', ha='center', va='center', 
+                                            color='black', fontweight='bold', fontsize=10)
+        
+        # Alpha
+        self.ax_alpha.set_facecolor('white')
+        self.ax_alpha.set_title('Alpha (8-13Hz)', fontsize=8, color='#cc9900', fontweight='bold')
         self.ax_alpha.set_xlim(0, 1.0)
         self.ax_alpha.set_xticks([])
         self.ax_alpha.set_yticks([])
-        self.bar_alpha = self.ax_alpha.barh([0], [0.5], color='yellow', alpha=0.7, height=0.5)
-        self.text_alpha = self.ax_alpha.text(0.5, 0.5, '0.00', ha='center', va='center', 
-                                            color='black', fontweight='bold')
+        for spine in self.ax_alpha.spines.values():
+            spine.set_edgecolor('#dddddd')
+        self.bar_alpha = self.ax_alpha.barh([0], [0.25], color='gold', alpha=0.9, height=0.5)
+        self.text_alpha = self.ax_alpha.text(0.5, 0, '0.25', ha='center', va='center', 
+                                            color='black', fontweight='bold', fontsize=10)
         
-        # Beta (Bottom)
-        self.ax_beta.set_facecolor('#0a0a0a')
-        self.ax_beta.set_title('Beta Power (13-30Hz)', fontsize=10, color='cyan')
+        # Beta
+        self.ax_beta.set_facecolor('white')
+        self.ax_beta.set_title('Beta (13-30Hz)', fontsize=8, color='#0088aa', fontweight='bold')
         self.ax_beta.set_xlim(0, 1.0)
         self.ax_beta.set_xticks([])
         self.ax_beta.set_yticks([])
-        self.bar_beta = self.ax_beta.barh([0], [0.5], color='cyan', alpha=0.7, height=0.5)
-        self.text_beta = self.ax_beta.text(0.5, 0.5, '0.00', ha='center', va='center', 
-                                          color='black', fontweight='bold')
+        for spine in self.ax_beta.spines.values():
+            spine.set_edgecolor('#dddddd')
+        self.bar_beta = self.ax_beta.barh([0], [0.25], color='deepskyblue', alpha=0.9, height=0.5)
+        self.text_beta = self.ax_beta.text(0.5, 0, '0.25', ha='center', va='center', 
+                                          color='black', fontweight='bold', fontsize=10)
         
-    def setup_waveform_plot(self):
-        """Setup the main EEG waveform display"""
-        self.ax_waveform.set_facecolor('#0a0a0a')
-        self.ax_waveform.set_title('EEG Signal - Time Domain', 
-                                   fontsize=12, color='#00ff00', fontweight='bold')
-        self.ax_waveform.set_xlabel('Time (seconds)', color='white')
-        self.ax_waveform.set_ylabel('Amplitude (µV)', color='white')
-        self.ax_waveform.grid(True, alpha=0.2, color='#00ff00', linestyle='--')
-        self.ax_waveform.tick_params(colors='white')
+        # Gamma
+        self.ax_gamma.set_facecolor('white')
+        self.ax_gamma.set_title('Gamma (30-50Hz)', fontsize=8, color='#cc3300', fontweight='bold')
+        self.ax_gamma.set_xlim(0, 1.0)
+        self.ax_gamma.set_xticks([])
+        self.ax_gamma.set_yticks([])
+        for spine in self.ax_gamma.spines.values():
+            spine.set_edgecolor('#dddddd')
+        self.bar_gamma = self.ax_gamma.barh([0], [0.25], color='orangered', alpha=0.9, height=0.5)
+        self.text_gamma = self.ax_gamma.text(0.5, 0, '0.25', ha='center', va='center', 
+                                            color='black', fontweight='bold', fontsize=10)
         
-        # Create the line plot
-        self.line_waveform, = self.ax_waveform.plot([], [], color='#00ff00', 
-                                                     linewidth=1.0, label='EEG Signal')
+    def setup_health_panel(self):
+        """Setup health predictions"""
+        self.ax_health.set_facecolor('white')
+        self.ax_health.axis('off')
+        self.ax_health.set_title('Health Predictions', fontsize=10, color='#0066cc', fontweight='bold', loc='left')
         
-        # Initialization
-        self.ax_waveform.set_xlim(0, self.display_seconds)
-        self.ax_waveform.set_ylim(-100, 100)
-        
-    def setup_spectrum_plot(self):
-        """Setup frequency spectrum (FFT) display"""
-        self.ax_spectrum.set_facecolor('#0a0a0a')
-        self.ax_spectrum.set_title('Frequency Spectrum (FFT)', 
-                                   fontsize=10, color='#00ffff', fontweight='bold')
-        self.ax_spectrum.set_xlabel('Frequency (Hz)', color='white')
-        self.ax_spectrum.set_ylabel('Power', color='white')
-        self.ax_spectrum.set_xlim(0, 50)
-        self.ax_spectrum.set_ylim(0, 1000) # Fixed scale for performance
-        self.ax_spectrum.grid(True, alpha=0.2, color='#00ffff', linestyle='--')
-        self.ax_spectrum.tick_params(colors='white')
-        
-        # Highlight frequency bands
-        self.ax_spectrum.axvspan(8, 13, alpha=0.1, color='yellow')
-        self.ax_spectrum.axvspan(13, 30, alpha=0.1, color='cyan')
-        
-        # Create the spectrum line (reused)
-        self.line_spectrum, = self.ax_spectrum.plot([], [], color='#00ffff', linewidth=1.5)
-        # We simulate fill using a polygon if needed, but line is faster
-        
-    def setup_feature_plot(self):
-        """Setup feature bar chart"""
-        self.ax_features.set_facecolor('#0a0a0a')
-        self.ax_features.set_title('Band Power Features', 
-                                   fontsize=10, color='#ffff00', fontweight='bold')
-        self.ax_features.set_ylabel('Normalized Power', color='white')
-        self.ax_features.set_ylim(0, 1.0)
-        self.ax_features.tick_params(colors='white')
-        self.ax_features.grid(True, alpha=0.2, axis='y', color='white')
-        
-        # Create initial bars
-        self.bars_features = self.ax_features.bar(['Alpha', 'Beta'], [0.0, 0.0],
-                                                   color=['yellow', 'cyan'], alpha=0.7)
-        
+        self.health_texts = {
+            'visual': self.ax_health.text(0.17, 0.5, 'Visual: NORMAL', 
+                                         ha='center', va='center', fontsize=10, 
+                                         color='#00aa00', fontweight='bold',
+                                         bbox=dict(boxstyle='round', facecolor='#f0f0f0', 
+                                                  edgecolor='#00aa00', linewidth=2, alpha=0.9)),
+            'motor': self.ax_health.text(0.50, 0.5, 'Motor: NORMAL', 
+                                        ha='center', va='center', fontsize=10, 
+                                        color='#00aa00', fontweight='bold',
+                                        bbox=dict(boxstyle='round', facecolor='#f0f0f0', 
+                                                 edgecolor='#00aa00', linewidth=2, alpha=0.9)),
+            'attention': self.ax_health.text(0.83, 0.5, 'Attention: NORMAL', 
+                                           ha='center', va='center', fontsize=10, 
+                                           color='#00aa00', fontweight='bold',
+                                           bbox=dict(boxstyle='round', facecolor='#f0f0f0', 
+                                                    edgecolor='#00aa00', linewidth=2, alpha=0.9))
+        }
+    
     def setup_status_panel(self):
-        """Setup status and classification display"""
-        self.ax_status.set_facecolor('#0a0a0a')
+        """Setup status panel"""
+        self.ax_status.set_facecolor('white')
         self.ax_status.axis('off')
         
-        # Create text elements
         self.text_elements = {
-            'command': self.ax_status.text(0.5, 0.80, 'Command: NONE', 
-                                          ha='center', va='top', fontsize=14, 
-                                          color='white', fontweight='bold'),
-            'led': self.ax_status.text(0.5, 0.65, 'LED: OFF', 
-                                       ha='center', va='top', fontsize=12, 
-                                       color='#ff0000'),
-            'stats': self.ax_status.text(0.5, 0.40, 'Alpha: 0.00 | Beta: 0.00', 
-                                         ha='center', va='top', fontsize=10, 
-                                         color='white'),
+            'command': self.ax_status.text(0.5, 0.90, 'Command:\nNONE', 
+                                          ha='center', va='top', fontsize=11, 
+                                          color='#333333', fontweight='bold'),
+            'led': self.ax_status.text(0.5, 0.60, 'LED: OFF', 
+                                       ha='center', va='top', fontsize=10, 
+                                       color='#cc0000'),
+            'stats': self.ax_status.text(0.5, 0.35, 'Band Powers:', 
+                                         ha='center', va='top', fontsize=8, 
+                                         color='#333333'),
         }
-        
-    def generate_test_signal(self, command='NONE'):
-        """Generate simulated EEG signal for testing"""
-        t = np.arange(self.window_size) / self.sampling_rate
-        
-        if command == 'FOCUS':
-            # High beta (21.5 Hz)
-            signal_eeg = 30 * np.sin(2 * np.pi * 21.5 * t) + 15 * np.sin(2 * np.pi * 10.5 * t)
-        elif command == 'RELAX':
-            # High alpha (10.5 Hz)
-            signal_eeg = 50 * np.sin(2 * np.pi * 10.5 * t) + 15 * np.sin(2 * np.pi * 21.5 * t)
-        elif command == 'BLINK':
-            # Normal + spike
-            signal_eeg = 25 * np.sin(2 * np.pi * 10.5 * t) + 25 * np.sin(2 * np.pi * 21.5 * t)
-            spike_idx = len(t) // 2
-            signal_eeg[spike_idx-10:spike_idx+10] += 150 * np.exp(-((np.arange(20)-10)**2) / 10)
-        else:
-            signal_eeg = 25 * np.sin(2 * np.pi * 10.5 * t) + 25 * np.sin(2 * np.pi * 21.5 * t)
-        
-        # Add noise
-        signal_eeg += np.random.normal(0, 5, len(t))
-        return signal_eeg
     
     def compute_fft(self, signal_data):
-        """Compute FFT of signal"""
+        """Compute FFT"""
         n = len(signal_data)
         if n < self.window_size:
             return None, None
         
-        # Use numpy arrays for speed
         signal_arr = np.array(signal_data)
         yf = np.abs(fft(signal_arr[-self.window_size:]))
         xf = fftfreq(self.window_size, 1/self.sampling_rate)
         
-        # Get positive frequencies 0-50Hz
         mask = (xf >= 0) & (xf <= 50)
         return xf[mask], yf[mask]
     
     def update_plot(self, frame):
-        """Update all plots - optimized for speed"""
-        # Process queue (limit to avoid blocking)
+        """Update all plots"""
+        # Process queue
         points_processed = 0
         try:
             while not self.data_queue.empty() and points_processed < 50:
@@ -269,16 +251,12 @@ class BCIVisualizer:
         
         # Update waveform
         if len(self.time_data) > 0:
-            # Shift time to look continuous or fixed window? 
-            # For performance, just plot the buffer against relative time or index
             t_data = list(self.time_data)
             y_data = list(self.signal_data)
             
-            # Auto-scroll X axis if needed
             if t_data[-1] > self.ax_waveform.get_xlim()[1]:
                  self.ax_waveform.set_xlim(t_data[-1] - self.display_seconds, t_data[-1])
             
-            # Auto-scale Y axis (every 10 frames)
             if frame % 10 == 0 and len(y_data) > 0:
                 y_min, y_max = min(y_data), max(y_data)
                 padding = max(10, (y_max - y_min) * 0.1)
@@ -287,7 +265,7 @@ class BCIVisualizer:
             self.line_waveform.set_data(t_data, y_data)
             artists.append(self.line_waveform)
         
-        # Update FFT spectrum (every 5th frame to save CPU)
+        # Update FFT
         if frame % 5 == 0 and len(self.signal_data) >= self.window_size:
             xf, yf = self.compute_fft(self.signal_data)
             if xf is not None:
@@ -296,128 +274,75 @@ class BCIVisualizer:
         else:
             artists.append(self.line_spectrum)
         
-        # Update feature bars
-        # Update feature bars
+        # Update bands
         if len(self.alpha_power_history) > 0:
+            self.bar_theta[0].set_width(self.current_theta)
+            self.text_theta.set_text(f'{self.current_theta:.2f}')
+            
             self.bar_alpha[0].set_width(self.current_alpha)
             self.text_alpha.set_text(f'{self.current_alpha:.2f}')
-            artists.append(self.bar_alpha[0])
-            artists.append(self.text_alpha)
             
             self.bar_beta[0].set_width(self.current_beta)
             self.text_beta.set_text(f'{self.current_beta:.2f}')
-            artists.append(self.bar_beta[0])
-            artists.append(self.text_beta)
+            
+            self.bar_gamma[0].set_width(self.current_gamma)
+            self.text_gamma.set_text(f'{self.current_gamma:.2f}')
         
-        # Update status panel
+        # Update health predictions
+        pred_colors = {'NORMAL': '#00aa00', 'BORDERLINE': '#cc8800', 'IMPAIRED': '#cc0000'}
+        
+        self.health_texts['visual'].set_text(f'Visual: {self.visual_impairment}')
+        self.health_texts['visual'].set_color(pred_colors.get(self.visual_impairment, '#333333'))
+        self.health_texts['visual'].get_bbox_patch().set_edgecolor(pred_colors.get(self.visual_impairment, '#999999'))
+        
+        self.health_texts['motor'].set_text(f'Motor: {self.motor_impairment}')
+        self.health_texts['motor'].set_color(pred_colors.get(self.motor_impairment, '#333333'))
+        self.health_texts['motor'].get_bbox_patch().set_edgecolor(pred_colors.get(self.motor_impairment, '#999999'))
+        
+        self.health_texts['attention'].set_text(f'Attention: {self.attention_deficit}')
+        self.health_texts['attention'].set_color(pred_colors.get(self.attention_deficit, '#333333'))
+        self.health_texts['attention'].get_bbox_patch().set_edgecolor(pred_colors.get(self.attention_deficit, '#999999'))
+        
+        # Update status
         self.update_status_panel()
         artists.extend(self.text_elements.values())
         
         return artists
     
     def update_status_panel(self):
-        """Update the status text"""
-        # Command color coding
-        cmd_colors = {'FOCUS': '#00ff00', 'RELAX': '#00aaff', 'BLINK': '#ff9900', 'NONE': '#888888'}
+        """Update status text"""
+        cmd_colors = {'FOCUS': '#00aa00', 'RELAX': '#0088cc', 'BLINK': '#cc6600', 'NONE': '#666666'}
         
-        self.text_elements['command'].set_text(f'Command: {self.current_command}')
-        self.text_elements['command'].set_color(cmd_colors.get(self.current_command, 'white'))
+        self.text_elements['command'].set_text(f'Command:\n{self.current_command}')
+        self.text_elements['command'].set_color(cmd_colors.get(self.current_command, '#333333'))
         
         led_text = 'LED: ON' if self.led_state else 'LED: OFF'
         self.text_elements['led'].set_text(led_text)
-        self.text_elements['led'].set_color('#00ff00' if self.led_state else '#ff0000')
+        self.text_elements['led'].set_color('#00aa00' if self.led_state else '#cc0000')
         
-        self.text_elements['stats'].set_text(f'Alpha: {self.current_alpha:.2f} | Beta: {self.current_beta:.2f}')
+        stats_text = f'θ:{self.current_theta:.2f}\nα:{self.current_alpha:.2f}\nβ:{self.current_beta:.2f}\nγ:{self.current_gamma:.2f}'
+        self.text_elements['stats'].set_text(stats_text)
+        self.text_elements['stats'].set_color('#333333')
     
     def process_data(self, data):
-        """Process incoming data point"""
+        """Process incoming data"""
         self.time_data.append(data['time'])
         self.signal_data.append(data['amplitude'])
         
         if 'command' in data: self.current_command = data['command']
+        if 'theta_power' in data: 
+            self.current_theta = data['theta_power']
+            self.theta_power_history.append(data['theta_power'])
         if 'alpha_power' in data: 
             self.current_alpha = data['alpha_power']
             self.alpha_power_history.append(data['alpha_power'])
         if 'beta_power' in data: 
             self.current_beta = data['beta_power']
             self.beta_power_history.append(data['beta_power'])
+        if 'gamma_power' in data: 
+            self.current_gamma = data['gamma_power']
+            self.gamma_power_history.append(data['gamma_power'])
         if 'led_state' in data: self.led_state = data['led_state']
-    
-    def run_from_stream(self, filepath='data/realtime_stream.csv'):
-        """Run by reading a CSV file that is being written to in real-time"""
-        print(f"Monitoring real-time stream: {filepath}")
-        print("Waiting for data...")
-        
-        def monitor_file():
-            last_pos = 0
-            while True:
-                try:
-                    if os.path.exists(filepath):
-                        with open(filepath, 'r') as f:
-                            f.seek(last_pos)
-                            lines = f.readlines()
-                            last_pos = f.tell()
-                            
-                            for line in lines:
-                                if line.startswith('time'): continue
-                                try:
-                                    parts = line.strip().split(',')
-                                    if len(parts) >= 2:
-                                        data = {
-                                            'time': float(parts[0]),
-                                            'amplitude': float(parts[1]),
-                                            'alpha_power': float(parts[2]) if len(parts)>2 else 0.5,
-                                            'beta_power': float(parts[3]) if len(parts)>3 else 0.5,
-                                            'command': parts[4] if len(parts)>4 else 'NONE',
-                                            'led_state': int(parts[5])==1 if len(parts)>5 else False
-                                        }
-                                        self.data_queue.put(data)
-                                except:
-                                    continue
-                except:
-                    pass
-                time.sleep(0.05)
-        
-        thread = threading.Thread(target=monitor_file, daemon=True)
-        thread.start()
-        
-        anim = animation.FuncAnimation(self.fig, self.update_plot, 
-                                      interval=30, blit=True, cache_frame_data=False)
-        plt.show()
-    
-    def run_with_bci(self, bci_executable='bin/bci_system.exe'):
-        """Run with actual BCI system (TODO: implement data reading)"""
-        print(f"Running with BCI system: {bci_executable}")
-        print("This will be implemented once C code exports data")
-        # TODO: Read data from BCI program output
-        # For now, fall back to test mode
-        self.run_test_mode()
-
-
-def main():
-    import sys
-    
-    visualizer = BCIVisualizer()
-    
-    # Check for test mode
-    # Check mode
-    if '--size' in sys.argv:
-        pass # Handle resizing manually if needed?
-        
-    if '--stream' in sys.argv:
-        visualizer.run_from_stream()
-    elif '--test-mode' in sys.argv or '--test' in sys.argv:
-        visualizer.run_test_mode()
-    else:
-        # Try to run with BCI, fall back to test mode
-        print("BCI Waveform Visualizer")
-        print("=" * 60)
-        print("Usage:")
-        print("  python realtime_visualizer.py --test-mode   # Test with simulated data")
-        print("  python realtime_visualizer.py               # Connect to BCI system")
-        print()
-        visualizer.run_test_mode()
-
-
-if __name__ == '__main__':
-    main()
+        if 'visual_impairment' in data: self.visual_impairment = data['visual_impairment']
+        if 'motor_impairment' in data: self.motor_impairment = data['motor_impairment']
+        if 'attention_deficit' in data: self.attention_deficit = data['attention_deficit']
