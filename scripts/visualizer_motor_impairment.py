@@ -45,6 +45,8 @@ class MotorImpairmentVisualizer:
         self.beta_values = []
         self.prediction_counts = {'NORMAL': 0, 'BORDERLINE': 0, 'IMPAIRED': 0}
         self.total_samples = 0
+        self.correct_predictions = 0
+        self.total_predictions = 0
         
         # Data queue
         self.data_queue = queue.Queue()
@@ -176,80 +178,82 @@ class MotorImpairmentVisualizer:
         self.ax_status.axis('off')
         
         self.text_elements = {
-            'command': self.ax_status.text(0.5, 0.90, 'Command:\nNONE', 
-                                          ha='center', va='top', fontsize=11, 
+            'command': self.ax_status.text(0.5, 0.95, 'Command:\nNONE', 
+                                          ha='center', va='top', fontsize=9, 
                                           color='#333333', fontweight='bold'),
-            'led': self.ax_status.text(0.5, 0.60, 'LED: OFF', 
-                                       ha='center', va='top', fontsize=10, 
+            'led': self.ax_status.text(0.5, 0.55, 'LED: OFF', 
+                                       ha='center', va='top', fontsize=8, 
                                        color='#cc0000'),
-            'stats': self.ax_status.text(0.5, 0.35, 'Beta Power:\n0.25', 
-                                         ha='center', va='top', fontsize=10, 
+            'stats': self.ax_status.text(0.5, 0.30, 'Beta:\n0.25', 
+                                         ha='center', va='top', fontsize=8, 
                                          color='#333333', fontweight='bold'),
-        }\r
-    \r
-    def setup_statistics_panel(self):\r
-        """Setup session statistics panel"""\r
-        self.ax_stats_panel.set_facecolor('#f8f8f8')\r
-        self.ax_stats_panel.axis('off')\r
-        self.ax_stats_panel.set_title('📊 Session Statistics', fontsize=10, color='#0066cc', fontweight='bold', loc='left')\r
-        \r
-        self.stats_text = self.ax_stats_panel.text(\r
-            0.5, 0.5, 'Session: 0s | Beta Avg: 0.00 | Min: 0.00 | Max: 0.00 | Predictions: N:0 B:0 I:0', \r
-            ha='center', va='center', fontsize=9, color='#333333', fontweight='bold')\r
-    \r
-    def setup_export_buttons(self):\r
-        """Setup export control buttons"""\r
-        self.ax_btn_screenshot.axis('off')\r
-        self.ax_btn_export.axis('off')\r
-        \r
-        self.btn_screenshot = Button(self.ax_btn_screenshot, '💾 Save Screenshot', color='#4CAF50', hovercolor='#45a049')\r
-        self.btn_screenshot.label.set_fontsize(9)\r
-        self.btn_screenshot.label.set_color('white')\r
-        self.btn_screenshot.on_clicked(self.save_screenshot)\r
-        \r
-        self.btn_export = Button(self.ax_btn_export, '📁 Export Session Data', color='#2196F3', hovercolor='#0b7dda')\r
-        self.btn_export.label.set_fontsize(9)\r
-        self.btn_export.label.set_color('white')\r
-        self.btn_export.on_clicked(self.export_session_data)\r
-    \r
-    def save_screenshot(self, event):\r
-        """Save current visualization as PNG"""\r
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')\r
-        filename = f'motor_impairment_session_{timestamp}.png'\r
-        self.fig.savefig(filename, dpi=150, bbox_inches='tight', facecolor='white')\r
-        print(f'\n✅ Screenshot saved: {filename}')\r
-    \r
-    def export_session_data(self, event):\r
-        """Export session data to CSV"""\r
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')\r
-        filename = f'motor_impairment_data_{timestamp}.csv'\r
-        \r
-        with open(filename, 'w', newline='') as f:\r
-            writer = csv.writer(f)\r
-            writer.writerow(['Metric', 'Value'])\r
-            writer.writerow(['Session Start', self.session_start.strftime('%Y-%m-%d %H:%M:%S')])\r
-            writer.writerow(['Session Duration (s)', (datetime.now() - self.session_start).total_seconds()])\r
-            writer.writerow(['Total Samples', self.total_samples])\r
-            writer.writerow(['Beta Avg', np.mean(self.beta_values) if self.beta_values else 0])\r
-            writer.writerow(['Beta Min', np.min(self.beta_values) if self.beta_values else 0])\r
-            writer.writerow(['Beta Max', np.max(self.beta_values) if self.beta_values else 0])\r
-            writer.writerow(['Predictions NORMAL', self.prediction_counts['NORMAL']])\r
-            writer.writerow(['Predictions BORDERLINE', self.prediction_counts['BORDERLINE']])\r
-            writer.writerow(['Predictions IMPAIRED', self.prediction_counts['IMPAIRED']])\r
-        print(f'\n✅ Session data exported: {filename}')\r
-    \r
-    def update_statistics(self):\r
-        """Update statistics display"""\r
-        duration = (datetime.now() - self.session_start).total_seconds()\r
-        avg_beta = np.mean(self.beta_values) if self.beta_values else 0\r
-        min_beta = np.min(self.beta_values) if self.beta_values else 0\r
-        max_beta = np.max(self.beta_values) if self.beta_values else 0\r
-        \r
-        stats_text = (f'Session: {duration:.0f}s | '\r
-                     f'Beta Avg: {avg_beta:.2f} Min: {min_beta:.2f} Max: {max_beta:.2f} | '\r
-                     f'Predictions N:{self.prediction_counts["NORMAL"]} '\r
-                     f'B:{self.prediction_counts["BORDERLINE"]} I:{self.prediction_counts["IMPAIRED"]}')\r
-        self.stats_text.set_text(stats_text)\r
+        }
+    
+    def setup_statistics_panel(self):
+        """Setup session statistics panel"""
+        self.ax_stats_panel.set_facecolor('#f8f8f8')
+        self.ax_stats_panel.axis('off')
+        self.ax_stats_panel.set_title('📊 Session Statistics', fontsize=10, color='#0066cc', fontweight='bold', loc='left')
+        
+        self.stats_text = self.ax_stats_panel.text(
+            0.5, 0.5, 'Session: 0s | Beta Avg: 0.00 | Min: 0.00 | Max: 0.00 | Accuracy: 0% | Predictions: N:0 B:0 I:0', 
+            ha='center', va='center', fontsize=9, color='#333333', fontweight='bold')
+    
+    def setup_export_buttons(self):
+        """Setup export control buttons"""
+        self.ax_btn_screenshot.axis('off')
+        self.ax_btn_export.axis('off')
+        
+        self.btn_screenshot = Button(self.ax_btn_screenshot, '💾 Save Screenshot', color='#4CAF50', hovercolor='#45a049')
+        self.btn_screenshot.label.set_fontsize(9)
+        self.btn_screenshot.label.set_color('white')
+        self.btn_screenshot.on_clicked(self.save_screenshot)
+        
+        self.btn_export = Button(self.ax_btn_export, '📁 Export Session Data', color='#2196F3', hovercolor='#0b7dda')
+        self.btn_export.label.set_fontsize(9)
+        self.btn_export.label.set_color('white')
+        self.btn_export.on_clicked(self.export_session_data)
+    
+    def save_screenshot(self, event):
+        """Save current visualization as PNG"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'motor_impairment_session_{timestamp}.png'
+        self.fig.savefig(filename, dpi=150, bbox_inches='tight', facecolor='white')
+        print(f'\n✅ Screenshot saved: {filename}')
+    
+    def export_session_data(self, event):
+        """Export session data to CSV"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'motor_impairment_data_{timestamp}.csv'
+        
+        with open(filename, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Metric', 'Value'])
+            writer.writerow(['Session Start', self.session_start.strftime('%Y-%m-%d %H:%M:%S')])
+            writer.writerow(['Session Duration (s)', (datetime.now() - self.session_start).total_seconds()])
+            writer.writerow(['Total Samples', self.total_samples])
+            writer.writerow(['Beta Avg', np.mean(self.beta_values) if self.beta_values else 0])
+            writer.writerow(['Beta Min', np.min(self.beta_values) if self.beta_values else 0])
+            writer.writerow(['Beta Max', np.max(self.beta_values) if self.beta_values else 0])
+            writer.writerow(['Predictions NORMAL', self.prediction_counts['NORMAL']])
+            writer.writerow(['Predictions BORDERLINE', self.prediction_counts['BORDERLINE']])
+            writer.writerow(['Predictions IMPAIRED', self.prediction_counts['IMPAIRED']])
+        print(f'\n✅ Session data exported: {filename}')
+    
+    def update_statistics(self):
+        """Update statistics display"""
+        duration = (datetime.now() - self.session_start).total_seconds()
+        avg_beta = np.mean(self.beta_values) if self.beta_values else 0
+        min_beta = np.min(self.beta_values) if self.beta_values else 0
+        max_beta = np.max(self.beta_values) if self.beta_values else 0
+        accuracy = (self.correct_predictions / self.total_predictions * 100) if self.total_predictions > 0 else 0
+        
+        stats_text = (f'Session: {duration:.0f}s | '
+                     f'Beta Avg: {avg_beta:.2f} Min: {min_beta:.2f} Max: {max_beta:.2f} | '
+                     f'Accuracy: {accuracy:.1f}% | '
+                     f'Predictions N:{self.prediction_counts["NORMAL"]} '
+                     f'B:{self.prediction_counts["BORDERLINE"]} I:{self.prediction_counts["IMPAIRED"]}')
+        self.stats_text.set_text(stats_text)
     
     
     def compute_fft(self, signal_data):
@@ -332,8 +336,8 @@ class MotorImpairmentVisualizer:
         self.text_elements['led'].set_text(led_text)
         self.text_elements['led'].set_color('#00aa00' if self.led_state else '#cc0000')
         
-        # Only Beta band power - motor control focus
-        stats_text = f'Beta Power:\n{self.current_beta:.2f}'
+        # Only Beta band power
+        stats_text = f'Beta:\n{self.current_beta:.2f}'
         self.text_elements['stats'].set_text(stats_text)
         self.text_elements['stats'].set_color('#333333')
     
@@ -343,23 +347,6 @@ class MotorImpairmentVisualizer:
         self.signal_data.append(data['amplitude'])
         
         if 'command' in data: self.current_command = data['command']
-        if 'beta_power' in data: 
-            self.current_beta = data['beta_power']
-            self.beta_power_history.append(data['beta_power'])
-        if 'led_state' in data: self.led_state = data['led_state']
-        # ONLY motor impairment prediction
-        if 'motor_impairment' in data: self.motor_impairment = data['motor_impairment']
-
-
-# Main entry point
-if __name__ == "__main__":
-    # Check if file argument provided
-    if len(sys.argv) < 2:
-        print("Usage: python visualizer_motor_impairment.py <filename.csv>")
-        print("Example: python visualizer_motor_impairment.py data/raw/motor_impairment_data.csv")
-        sys.exit(1)
-    
-    filepath = sys.argv[1]
     
     # Try to import pandas
     try:

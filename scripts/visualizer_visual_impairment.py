@@ -187,73 +187,6 @@ class VisualImpairmentVisualizer:
                                          color='#333333', fontweight='bold'),
         }
     
-    def setup_statistics_panel(self):
-        """Setup session statistics panel"""
-        self.ax_stats_panel.set_facecolor('#f8f8f8')
-        self.ax_stats_panel.axis('off')
-        self.ax_stats_panel.set_title('📊 Session Statistics', fontsize=10, color='#0066cc', fontweight='bold', loc='left')
-        
-        self.stats_text = self.ax_stats_panel.text(
-            0.5, 0.5, 'Session: 0s | Alpha Avg: 0.00 | Min: 0.00 | Max: 0.00 | Predictions: N:0 B:0 I:0', 
-            ha='center', va='center', fontsize=9, color='#333333', fontweight='bold')
-    
-    def setup_export_buttons(self):
-        """Setup export control buttons"""
-        self.ax_btn_screenshot.axis('off')
-        self.ax_btn_export.axis('off')
-        
-        # Save screenshot button
-        self.btn_screenshot = Button(self.ax_btn_screenshot, '💾 Save Screenshot', color='#4CAF50', hovercolor='#45a049')
-        self.btn_screenshot.label.set_fontsize(9)
-        self.btn_screenshot.label.set_color('white')
-        self.btn_screenshot.on_clicked(self.save_screenshot)
-        
-        # Export data button  
-        self.btn_export = Button(self.ax_btn_export, '📁 Export Session Data', color='#2196F3', hovercolor='#0b7dda')
-        self.btn_export.label.set_fontsize(9)
-        self.btn_export.label.set_color('white')
-        self.btn_export.on_clicked(self.export_session_data)
-    
-    def save_screenshot(self, event):
-        """Save current visualization as PNG"""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'visual_impairment_session_{timestamp}.png'
-        self.fig.savefig(filename, dpi=150, bbox_inches='tight', facecolor='white')
-        print(f'\n✅ Screenshot saved: {filename}')
-    
-    def export_session_data(self, event):
-        """Export session data to CSV"""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'visual_impairment_data_{timestamp}.csv'
-        
-        with open(filename, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Metric', 'Value'])
-            writer.writerow(['Session Start', self.session_start.strftime('%Y-%m-%d %H:%M:%S')])
-            writer.writerow(['Session Duration (s)', (datetime.now() - self.session_start).total_seconds()])
-            writer.writerow(['Total Samples', self.total_samples])
-            writer.writerow(['Alpha Avg', np.mean(self.alpha_values) if self.alpha_values else 0])
-            writer.writerow(['Alpha Min', np.min(self.alpha_values) if self.alpha_values else 0])
-            writer.writerow(['Alpha Max', np.max(self.alpha_values) if self.alpha_values else 0])
-            writer.writerow(['Predictions NORMAL', self.prediction_counts['NORMAL']])
-            writer.writerow(['Predictions BORDERLINE', self.prediction_counts['BORDERLINE']])
-            writer.writerow(['Predictions IMPAIRED', self.prediction_counts['IMPAIRED']])
-        
-        print(f'\n✅ Session data exported: {filename}')
-    
-    def update_statistics(self):
-        """Update statistics display"""
-        duration = (datetime.now() - self.session_start).total_seconds()
-        avg_alpha = np.mean(self.alpha_values) if self.alpha_values else 0
-        min_alpha = np.min(self.alpha_values) if self.alpha_values else 0
-        max_alpha = np.max(self.alpha_values) if self.alpha_values else 0
-        
-        stats_text = (f'Session: {duration:.0f}s | '
-                     f'Alpha Avg: {avg_alpha:.2f} Min: {min_alpha:.2f} Max: {max_alpha:.2f} | '
-                     f'Predictions N:{self.prediction_counts["NORMAL"]} '
-                     f'B:{self.prediction_counts["BORDERLINE"]} I:{self.prediction_counts["IMPAIRED"]}')
-        self.stats_text.set_text(stats_text)
-    
     def compute_fft(self, signal_data):
         """Compute FFT"""
         n = len(signal_data)
@@ -321,10 +254,6 @@ class VisualImpairmentVisualizer:
         self.update_status_panel()
         artists.extend(self.text_elements.values())
         
-        # Update session statistics (NEW!)
-        if frame % 10 == 0:  # Update every 10 frames to avoid slowdown
-            self.update_statistics()
-        
         return artists
     
     def update_status_panel(self):
@@ -352,17 +281,9 @@ class VisualImpairmentVisualizer:
         if 'alpha_power' in data: 
             self.current_alpha = data['alpha_power']
             self.alpha_power_history.append(data['alpha_power'])
-            # Track statistics
-            self.alpha_values.append(data['alpha_power'])
         if 'led_state' in data: self.led_state = data['led_state']
         # ONLY visual impairment prediction
-        if 'visual_impairment' in data:
-            self.visual_impairment = data['visual_impairment']
-            # Track prediction counts
-            if data['visual_impairment'] in self.prediction_counts:
-                self.prediction_counts[data['visual_impairment']] += 1
-        
-        self.total_samples += 1
+        if 'visual_impairment' in data: self.visual_impairment = data['visual_impairment']
 
 
 # Main entry point
