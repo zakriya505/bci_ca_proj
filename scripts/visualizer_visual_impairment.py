@@ -10,10 +10,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.gridspec import GridSpec
+from matplotlib.widgets import Button
 from scipy.fft import fft, fftfreq
 import queue
 import time
 from collections import deque
+from datetime import datetime
+import csv
 
 class VisualImpairmentVisualizer:
     def __init__(self):
@@ -37,6 +40,12 @@ class VisualImpairmentVisualizer:
         # Only visual impairment prediction
         self.visual_impairment = "NORMAL"
         
+        # SESSION STATISTICS
+        self.session_start = datetime.now()
+        self.alpha_values = []
+        self.prediction_counts = {'NORMAL': 0, 'BORDERLINE': 0, 'IMPAIRED': 0}
+        self.total_samples = 0
+        
         # Data queue
         self.data_queue = queue.Queue()
         
@@ -46,16 +55,16 @@ class VisualImpairmentVisualizer:
     def setup_figure(self):
         """Create the BCI interface"""
         # WHITE background
-        self.fig = plt.figure(figsize=(12, 8), facecolor='white')
+        self.fig = plt.figure(figsize=(14, 9), facecolor='white')  # Slightly larger for stats
         self.fig.canvas.manager.set_window_title('BCI - Visual Impairment')
         
-        # Grid layout - Better spacing to prevent overlap
-        gs = GridSpec(5, 3, figure=self.fig, 
-                     hspace=1.2,      # Increased vertical spacing
-                     wspace=0.6,      # Increased horizontal spacing
+        # Grid layout - with statistics panel
+        gs = GridSpec(6, 3, figure=self.fig, 
+                     hspace=1.0,
+                     wspace=0.6,
                      left=0.08, right=0.92, 
-                     top=0.94,        # More top margin
-                     bottom=0.06)     # Less bottom margin
+                     top=0.94,
+                     bottom=0.08)
         
         # Waveform (BLACK background)
         self.ax_waveform = self.fig.add_subplot(gs[0:2, :])
@@ -65,21 +74,30 @@ class VisualImpairmentVisualizer:
         self.ax_spectrum = self.fig.add_subplot(gs[2:4, 0])
         self.setup_spectrum_plot()
         
-        # ONLY Alpha band power - single row for thin rectangular border
-        self.ax_alpha = self.fig.add_subplot(gs[3, 1])  # Only row 3, not 2:4
+        # Statistics Panel (NEW!)
+        self.ax_stats_panel = self.fig.add_subplot(gs[2, 1:])
+        self.setup_statistics_panel()
+        
+        # ONLY Alpha band power
+        self.ax_alpha = self.fig.add_subplot(gs[3, 1])
         self.setup_feature_blocks()
         
-        # Status panel (WHITE)
-        self.ax_status = self.fig.add_subplot(gs[2:4, 2])
+        # Status panel
+        self.ax_status = self.fig.add_subplot(gs[3, 2])
         self.setup_status_panel()
         
-        # Visual impairment prediction (WHITE)
+        # Visual impairment prediction
         self.ax_health = self.fig.add_subplot(gs[4, :])
         self.setup_health_panel()
         
+        # Export buttons
+        self.ax_btn_screenshot = self.fig.add_subplot(gs[5, 0])
+        self.ax_btn_export = self.fig.add_subplot(gs[5, 1])
+        self.setup_export_buttons()
+        
         # Add system info at bottom
         info_text = f'Sampling Rate: {self.sampling_rate} Hz  |  Window: {self.window_size} samples  |  Display: {self.display_seconds}s  |  Dataset: Visual Impairment'
-        self.fig.text(0.5, 0.015, info_text, ha='center', va='bottom', 
+        self.fig.text(0.5, 0.02, info_text, ha='center', va='bottom', 
                      fontsize=8, color='black', fontweight='bold')
         
     def setup_waveform_plot(self):
@@ -169,6 +187,73 @@ class VisualImpairmentVisualizer:
                                          color='#333333', fontweight='bold'),
         }
     
+    def setup_statistics_panel(self):
+        """Setup session statistics panel"""
+        self.ax_stats_panel.set_facecolor('#f8f8f8')
+        self.ax_stats_panel.axis('off')
+        self.ax_stats_panel.set_title('📊 Session Statistics', fontsize=10, color='#0066cc', fontweight='bold', loc='left')
+        
+        self.stats_text = self.ax_stats_panel.text(
+            0.5, 0.5, 'Session: 0s | Alpha Avg: 0.00 | Min: 0.00 | Max: 0.00 | Predictions: N:0 B:0 I:0', 
+            ha='center', va='center', fontsize=9, color='#333333', fontweight='bold')
+    
+    def setup_export_buttons(self):
+        """Setup export control buttons"""
+        self.ax_btn_screenshot.axis('off')
+        self.ax_btn_export.axis('off')
+        
+        # Save screenshot button
+        self.btn_screenshot = Button(self.ax_btn_screenshot, '💾 Save Screenshot', color='#4CAF50', hovercolor='#45a049')
+        self.btn_screenshot.label.set_fontsize(9)
+        self.btn_screenshot.label.set_color('white')
+        self.btn_screenshot.on_clicked(self.save_screenshot)
+        
+        # Export data button  
+        self.btn_export = Button(self.ax_btn_export, '📁 Export Session Data', color='#2196F3', hovercolor='#0b7dda')
+        self.btn_export.label.set_fontsize(9)
+        self.btn_export.label.set_color('white')
+        self.btn_export.on_clicked(self.export_session_data)
+    
+    def save_screenshot(self, event):
+        """Save current visualization as PNG"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'visual_impairment_session_{timestamp}.png'
+        self.fig.savefig(filename, dpi=150, bbox_inches='tight', facecolor='white')
+        print(f'\n✅ Screenshot saved: {filename}')
+    
+    def export_session_data(self, event):
+        """Export session data to CSV"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'visual_impairment_data_{timestamp}.csv'
+        
+        with open(filename, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Metric', 'Value'])
+            writer.writerow(['Session Start', self.session_start.strftime('%Y-%m-%d %H:%M:%S')])
+            writer.writerow(['Session Duration (s)', (datetime.now() - self.session_start).total_seconds()])
+            writer.writerow(['Total Samples', self.total_samples])
+            writer.writerow(['Alpha Avg', np.mean(self.alpha_values) if self.alpha_values else 0])
+            writer.writerow(['Alpha Min', np.min(self.alpha_values) if self.alpha_values else 0])
+            writer.writerow(['Alpha Max', np.max(self.alpha_values) if self.alpha_values else 0])
+            writer.writerow(['Predictions NORMAL', self.prediction_counts['NORMAL']])
+            writer.writerow(['Predictions BORDERLINE', self.prediction_counts['BORDERLINE']])
+            writer.writerow(['Predictions IMPAIRED', self.prediction_counts['IMPAIRED']])
+        
+        print(f'\n✅ Session data exported: {filename}')
+    
+    def update_statistics(self):
+        """Update statistics display"""
+        duration = (datetime.now() - self.session_start).total_seconds()
+        avg_alpha = np.mean(self.alpha_values) if self.alpha_values else 0
+        min_alpha = np.min(self.alpha_values) if self.alpha_values else 0
+        max_alpha = np.max(self.alpha_values) if self.alpha_values else 0
+        
+        stats_text = (f'Session: {duration:.0f}s | '
+                     f'Alpha Avg: {avg_alpha:.2f} Min: {min_alpha:.2f} Max: {max_alpha:.2f} | '
+                     f'Predictions N:{self.prediction_counts["NORMAL"]} '
+                     f'B:{self.prediction_counts["BORDERLINE"]} I:{self.prediction_counts["IMPAIRED"]}')
+        self.stats_text.set_text(stats_text)
+    
     def compute_fft(self, signal_data):
         """Compute FFT"""
         n = len(signal_data)
@@ -236,6 +321,10 @@ class VisualImpairmentVisualizer:
         self.update_status_panel()
         artists.extend(self.text_elements.values())
         
+        # Update session statistics (NEW!)
+        if frame % 10 == 0:  # Update every 10 frames to avoid slowdown
+            self.update_statistics()
+        
         return artists
     
     def update_status_panel(self):
@@ -263,9 +352,17 @@ class VisualImpairmentVisualizer:
         if 'alpha_power' in data: 
             self.current_alpha = data['alpha_power']
             self.alpha_power_history.append(data['alpha_power'])
+            # Track statistics
+            self.alpha_values.append(data['alpha_power'])
         if 'led_state' in data: self.led_state = data['led_state']
         # ONLY visual impairment prediction
-        if 'visual_impairment' in data: self.visual_impairment = data['visual_impairment']
+        if 'visual_impairment' in data:
+            self.visual_impairment = data['visual_impairment']
+            # Track prediction counts
+            if data['visual_impairment'] in self.prediction_counts:
+                self.prediction_counts[data['visual_impairment']] += 1
+        
+        self.total_samples += 1
 
 
 # Main entry point
