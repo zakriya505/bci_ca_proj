@@ -41,9 +41,29 @@ if (-not (Test-Path $DataFile)) {
     Write-Host ""
 }
 
-# Run visualizer
+# Run specialized visualizer
 Write-Host "Starting visualization..." -ForegroundColor Green
 Write-Host "(Close the window to exit)" -ForegroundColor Yellow
 Write-Host ""
 
-& .\run_from_file.ps1 $DataFile
+# Find Python
+$pythonCmd = $null
+$pythonPaths = @("python", "py")
+foreach ($path in $pythonPaths) {
+    try {
+        $result = & $path --version 2>&1
+        if ($LASTEXITCODE -eq 0 -or $result -match "Python") {
+            $pythonCmd = $path
+            break
+        }
+    } catch {}
+}
+
+if (-not $pythonCmd) {
+    Write-Host "ERROR: Python not found!" -ForegroundColor Red
+    pause
+    exit 1
+}
+
+& $pythonCmd scripts\visualizer_attention_deficit.py $DataFile
+
