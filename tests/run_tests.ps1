@@ -17,7 +17,8 @@ if (-not (Test-Path $binDir)) {
 $gcc = "gcc"
 try {
     & $gcc --version | Out-Null
-} catch {
+}
+catch {
     Write-Host "ERROR: GCC not found!" -ForegroundColor Red
     exit 1
 }
@@ -30,6 +31,7 @@ Write-Host "`nBuilding test_feature_extraction..." -ForegroundColor Green
     -o "$binDir/test_feature_extraction.exe" `
     tests/test_feature_extraction.c `
     src/feature_extraction.c `
+    src/fft.c `
     src/utils.c `
     -lm
 
@@ -53,20 +55,20 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n" -NoNewline
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "===========================================================" -ForegroundColor Cyan
 Write-Host "Running Test Suites" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "===========================================================" -ForegroundColor Cyan
 
-$totalPassed = 0
 $totalFailed = 0
 
 # Run Feature Extraction Tests
 Write-Host "`n[1/2] Feature Extraction Tests" -ForegroundColor Magenta
 & "$binDir/test_feature_extraction.exe"
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✓ Feature Extraction Tests PASSED" -ForegroundColor Green
-} else {
-    Write-Host "✗ Feature Extraction Tests FAILED" -ForegroundColor Red
+    Write-Host "PASSED: Feature Extraction Tests" -ForegroundColor Green
+}
+else {
+    Write-Host "FAILED: Feature Extraction Tests" -ForegroundColor Red
     $totalFailed++
 }
 
@@ -74,21 +76,23 @@ if ($LASTEXITCODE -eq 0) {
 Write-Host "`n[2/2] Classifier Tests" -ForegroundColor Magenta
 & "$binDir/test_classifier.exe"
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✓ Classifier Tests PASSED" -ForegroundColor Green
-} else {
-    Write-Host "✗ Classifier Tests FAILED" -ForegroundColor Red
+    Write-Host "PASSED: Classifier Tests" -ForegroundColor Green
+}
+else {
+    Write-Host "FAILED: Classifier Tests" -ForegroundColor Red
     $totalFailed++
 }
 
 # Final Summary
 Write-Host "`n" -NoNewline
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "===========================================================" -ForegroundColor Cyan
 Write-Host "Test Summary" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "===========================================================" -ForegroundColor Cyan
 
 if ($totalFailed -eq 0) {
-    Write-Host "`nALL TESTS PASSED! ✓" -ForegroundColor Green
-} else {
+    Write-Host "`nALL TESTS PASSED!" -ForegroundColor Green
+}
+else {
     Write-Host "`nSOME TESTS FAILED! ($totalFailed test suites)" -ForegroundColor Red
 }
 

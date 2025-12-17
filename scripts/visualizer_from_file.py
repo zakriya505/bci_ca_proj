@@ -96,6 +96,22 @@ vis.dataset_name = dataset_type
 # Feed data from file
 def load_file_data():
     for _, row in df.iterrows():
+        # Determine LED state based on impairment detection (not just FOCUS command)
+        # LED ON = Warning indicator for impairment
+        led_on = False
+        if dataset_type == "Visual Impairment":
+            led_on = row.get('visual_impairment', 'NORMAL') in ['IMPAIRED', 'BORDERLINE']
+        elif dataset_type == "Motor Impairment":
+            led_on = row.get('motor_impairment', 'NORMAL') in ['IMPAIRED', 'BORDERLINE']
+        elif dataset_type == "Attention Deficit":
+            led_on = row.get('attention_deficit', 'NORMAL') in ['IMPAIRED', 'BORDERLINE']
+        else:
+            # For general dataset, check any impairment
+            led_on = (row.get('command', 'NONE') == 'FOCUS' or
+                     row.get('visual_impairment', 'NORMAL') != 'NORMAL' or
+                     row.get('motor_impairment', 'NORMAL') != 'NORMAL' or
+                     row.get('attention_deficit', 'NORMAL') != 'NORMAL')
+        
         data = {
             'time': row['time'],
             'amplitude': row['amplitude'],
@@ -104,7 +120,7 @@ def load_file_data():
             'alpha_power': row.get('alpha_power', 0.25),
             'beta_power': row.get('beta_power', 0.25),
             'gamma_power': row.get('gamma_power', 0.25),
-            'led_state': row.get('command', 'NONE') == 'FOCUS',
+            'led_state': led_on,
             'visual_impairment': row.get('visual_impairment', 'NORMAL'),
             'motor_impairment': row.get('motor_impairment', 'NORMAL'),
             'attention_deficit': row.get('attention_deficit', 'NORMAL')

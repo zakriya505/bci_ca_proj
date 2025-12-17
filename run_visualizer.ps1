@@ -1,18 +1,48 @@
-# Quick launcher for BCI Visualizer - Uses CSV Data
-Write-Host "Launching BCI Waveform Visualizer..." -ForegroundColor Cyan
-Write-Host "Loading data from: sample_eeg_data.csv" -ForegroundColor Green
-Write-Host "(Close the window to exit)" -ForegroundColor Yellow
+# BCI Unified Visualizer Launcher
+# Launches the unified visualization interface with all modes
+
+Write-Host "Launching BCI Unified Visualizer..." -ForegroundColor Cyan
 Write-Host ""
 
-# Use the correct Python
-$pythonCmd = "C:\Users\HAMZA SULTAN\AppData\Local\Programs\Python\Python312\python.exe"
+# Find Python
+$pythonPaths = @(
+    "python",
+    "py",
+    "$env:LOCALAPPDATA\Programs\Python\Python*\python.exe",
+    "C:\Python*\python.exe"
+)
 
-if (-not (Test-Path $pythonCmd)) {
+$pythonCmd = $null
+foreach ($path in $pythonPaths) {
+    try {
+        if ($path -like "*\*") {
+            $found = Get-ChildItem $path -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) {
+                $pythonCmd = $found.FullName
+                break
+            }
+        } else {
+            $result = & $path --version 2>&1
+            if ($LASTEXITCODE -eq 0 -or $result -match "Python") {
+                $pythonCmd = $path
+                break
+            }
+        }
+    } catch {}
+}
+
+if (-not $pythonCmd) {
     Write-Host "ERROR: Python not found!" -ForegroundColor Red
+    Write-Host "Please install Python 3.x and add to PATH" -ForegroundColor Yellow
     pause
     exit 1
 }
 
-# Set PYTHONPATH and run with CSV file
+Write-Host "Using Python: $pythonCmd" -ForegroundColor Green
+Write-Host ""
+
+# Set PYTHONPATH
 $env:PYTHONPATH = "$PWD\scripts"
-& $pythonCmd scripts\visualizer_from_file.py sample_eeg_data.csv
+
+# Launch unified visualizer
+& $pythonCmd scripts\unified_visualizer.py

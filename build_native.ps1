@@ -22,7 +22,7 @@ catch {
 
 Write-Host "Compiling C source files..." -ForegroundColor Green
 
-# Get all C files except assembly-dependent ones
+# Get all C files except assembly-dependent ones and demo_integration (has its own main)
 $cFiles = @(
     "src/main.c",
     "src/eeg_simulator.c",
@@ -30,7 +30,10 @@ $cFiles = @(
     "src/feature_extraction.c",
     "src/classifier.c",
     "src/output_control.c",
-    "src/utils.c"
+    "src/utils.c",
+    "src/fft.c",
+    "src/lda.c",
+    "src/data_loader.c"
 )
 
 $objFiles = @()
