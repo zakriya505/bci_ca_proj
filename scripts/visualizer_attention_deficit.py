@@ -10,10 +10,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.gridspec import GridSpec
+from matplotlib.widgets import Button
 from scipy.fft import fft, fftfreq
 import queue
 import time
 from collections import deque
+from datetime import datetime
+import csv
 
 class AttentionDeficitVisualizer:
     def __init__(self):
@@ -39,6 +42,13 @@ class AttentionDeficitVisualizer:
         # Only attention deficit prediction
         self.attention_deficit = "NORMAL"
         
+        # SESSION STATISTICS
+        self.session_start = datetime.now()
+        self.theta_values = []
+        self.beta_values = []
+        self.prediction_counts = {'NORMAL': 0, 'BORDERLINE': 0, 'IMPAIRED': 0}
+        self.total_samples = 0
+        
         # Data queue
         self.data_queue = queue.Queue()
         
@@ -51,8 +61,8 @@ class AttentionDeficitVisualizer:
         self.fig = plt.figure(figsize=(12, 8), facecolor='white')
         self.fig.canvas.manager.set_window_title('BCI - Attention Deficit')
         
-        # Grid layout - 2 bands side by side, each in 1 row
-        gs = GridSpec(5, 4, figure=self.fig, 
+        # Grid layout - with statistics panel
+        gs = GridSpec(6, 4, figure=self.fig, 
                      hspace=1.2,      # Increased vertical spacing
                      wspace=0.5,      # spacing
                      left=0.08, right=0.92, 
@@ -67,18 +77,27 @@ class AttentionDeficitVisualizer:
         self.ax_spectrum = self.fig.add_subplot(gs[2:4, 0])
         self.setup_spectrum_plot()
         
+        # Statistics Panel
+        self.ax_stats_panel = self.fig.add_subplot(gs[2, 1:])
+        self.setup_statistics_panel()
+        
         # Theta and Beta bands - single row each for thin rectangular borders
         self.ax_theta = self.fig.add_subplot(gs[3, 1])  # Only row 3
         self.ax_beta = self.fig.add_subplot(gs[3, 2])   # Only row 3
         self.setup_feature_blocks()
         
         # Status panel (WHITE)
-        self.ax_status = self.fig.add_subplot(gs[2:4, 3])
+        self.ax_status = self.fig.add_subplot(gs[3, 3])
         self.setup_status_panel()
         
         # Attention deficit prediction (WHITE)
         self.ax_health = self.fig.add_subplot(gs[4, :])
         self.setup_health_panel()
+        
+        # Export buttons
+        self.ax_btn_screenshot = self.fig.add_subplot(gs[5, 0])
+        self.ax_btn_export = self.fig.add_subplot(gs[5, 1])
+        self.setup_export_buttons()
         
         # Add system info at bottom
         info_text = f'Sampling Rate: {self.sampling_rate} Hz  |  Window: {self.window_size} samples  |  Display: {self.display_seconds}s  |  Dataset: Attention Deficit'
@@ -256,6 +275,10 @@ class AttentionDeficitVisualizer:
         self.update_status_panel()
         artists.extend(self.text_elements.values())
         
+        # Update session statistics
+        if frame % 10 == 0:
+            self.update_statistics()
+        
         return artists
     
     def update_status_panel(self):
@@ -284,12 +307,18 @@ class AttentionDeficitVisualizer:
         if 'theta_power' in data: 
             self.current_theta = data['theta_power']
             self.theta_power_history.append(data['theta_power'])
+            self.theta_values.append(data['theta_power'])
         if 'beta_power' in data: 
             self.current_beta = data['beta_power']
             self.beta_power_history.append(data['beta_power'])
+            self.beta_values.append(data['beta_power'])
         if 'led_state' in data: self.led_state = data['led_state']
-        # ONLY attention deficit prediction
-        if 'attention_deficit' in data: self.attention_deficit = data['attention_deficit']
+        if 'attention_deficit' in data:
+            self.attention_deficit = data['attention_deficit']
+            if data['attention_deficit'] in self.prediction_counts:
+                self.prediction_counts[data['attention_deficit']] += 1
+        
+        self.total_samples += 1
 
 
 # Main entry point
