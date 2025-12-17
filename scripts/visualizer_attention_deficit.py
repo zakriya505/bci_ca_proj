@@ -205,6 +205,71 @@ class AttentionDeficitVisualizer:
                                              color='#333333', fontweight='bold'),
         }
     
+    def setup_statistics_panel(self):
+        """Setup session statistics panel"""
+        self.ax_stats_panel.set_facecolor('#f8f8f8')
+        self.ax_stats_panel.axis('off')
+        self.ax_stats_panel.set_title('📊 Session Statistics', fontsize=10, color='#0066cc', fontweight='bold', loc='left')
+        
+        self.stats_text = self.ax_stats_panel.text(
+            0.5, 0.5, 'Session: 0s | θ Avg: 0.00 | β Avg: 0.00 | θ/β: 1.00 | Predictions: N:0 B:0 I:0', 
+            ha='center', va='center', fontsize=9, color='#333333', fontweight='bold')
+    
+    def setup_export_buttons(self):
+        """Setup export control buttons"""
+        self.ax_btn_screenshot.axis('off')
+        self.ax_btn_export.axis('off')
+        
+        self.btn_screenshot = Button(self.ax_btn_screenshot, '💾 Save Screenshot', color='#4CAF50', hovercolor='#45a049')
+        self.btn_screenshot.label.set_fontsize(9)
+        self.btn_screenshot.label.set_color('white')
+        self.btn_screenshot.on_clicked(self.save_screenshot)
+        
+        self.btn_export = Button(self.ax_btn_export, '📁 Export Session Data', color='#2196F3', hovercolor='#0b7dda')
+        self.btn_export.label.set_fontsize(9)
+        self.btn_export.label.set_color('white')
+        self.btn_export.on_clicked(self.export_session_data)
+    
+    def save_screenshot(self, event):
+        """Save current visualization as PNG"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'attention_deficit_session_{timestamp}.png'
+        self.fig.savefig(filename, dpi=150, bbox_inches='tight', facecolor='white')
+        print(f'\n✅ Screenshot saved: {filename}')
+    
+    def export_session_data(self, event):
+        """Export session data to CSV"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'attention_deficit_data_{timestamp}.csv'
+        
+        with open(filename, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Metric', 'Value'])
+            writer.writerow(['Session Start', self.session_start.strftime('%Y-%m-%d %H:%M:%S')])
+            writer.writerow(['Session Duration (s)', (datetime.now() - self.session_start).total_seconds()])
+            writer.writerow(['Total Samples', self.total_samples])
+            writer.writerow(['Theta Avg', np.mean(self.theta_values) if self.theta_values else 0])
+            writer.writerow(['Beta Avg', np.mean(self.beta_values) if self.beta_values else 0])
+            avg_ratio = np.mean([t/b if b>0.01 else 10 for t,b in zip(self.theta_values, self.beta_values)]) if self.theta_values else 0
+            writer.writerow(['Theta/Beta Ratio Avg', avg_ratio])
+            writer.writerow(['Predictions NORMAL', self.prediction_counts['NORMAL']])
+            writer.writerow(['Predictions BORDERLINE', self.prediction_counts['BORDERLINE']])
+            writer.writerow(['Predictions IMPAIRED', self.prediction_counts['IMPAIRED']])
+        print(f'\n✅ Session data exported: {filename}')
+    
+    def update_statistics(self):
+        """Update statistics display"""
+        duration = (datetime.now() - self.session_start).total_seconds()
+        avg_theta = np.mean(self.theta_values) if self.theta_values else 0
+        avg_beta = np.mean(self.beta_values) if self.beta_values else 0
+        avg_ratio = avg_theta / avg_beta if avg_beta > 0.01 else 10.0
+        
+        stats_text = (f'Session: {duration:.0f}s | '
+                     f'θ Avg: {avg_theta:.2f} | β Avg: {avg_beta:.2f} | θ/β: {avg_ratio:.2f} | '
+                     f'Predictions N:{self.prediction_counts["NORMAL"]} '
+                     f'B:{self.prediction_counts["BORDERLINE"]} I:{self.prediction_counts["IMPAIRED"]}')
+        self.stats_text.set_text(stats_text)
+    
     def compute_fft(self, signal_data):
         """Compute FFT"""
         n = len(signal_data)
