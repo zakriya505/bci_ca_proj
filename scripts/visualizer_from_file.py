@@ -54,7 +54,17 @@ if not os.path.exists(filepath):
     print(f"ERROR: File not found: {filepath}")
     sys.exit(1)
 
+# Detect dataset type from filename
+dataset_type = "General"
+if "visual" in filepath.lower():
+    dataset_type = "Visual Impairment"
+elif "motor" in filepath.lower():
+    dataset_type = "Motor Impairment"
+elif "attention" in filepath.lower():
+    dataset_type = "Attention Deficit"
+
 print(f"Loading EEG data from: {filepath}")
+print(f"Dataset Type: {dataset_type}")
 
 try:
     if filepath.endswith('.xlsx') or filepath.endswith('.xls'):
@@ -80,6 +90,8 @@ for col in required:
 
 # Create visualizer
 vis = BCIVisualizer()
+# Store dataset type for display
+vis.dataset_name = dataset_type
 
 # Feed data from file
 def load_file_data():
@@ -88,15 +100,20 @@ def load_file_data():
             'time': row['time'],
             'amplitude': row['amplitude'],
             'command': row.get('command', 'NONE'),
-            'alpha_power': row.get('alpha_power', 0.5),
-            'beta_power': row.get('beta_power', 0.5),
-            'led_state': row.get('command', 'NONE') == 'FOCUS'
+            'theta_power': row.get('theta_power', 0.25),
+            'alpha_power': row.get('alpha_power', 0.25),
+            'beta_power': row.get('beta_power', 0.25),
+            'gamma_power': row.get('gamma_power', 0.25),
+            'led_state': row.get('command', 'NONE') == 'FOCUS',
+            'visual_impairment': row.get('visual_impairment', 'NORMAL'),
+            'motor_impairment': row.get('motor_impairment', 'NORMAL'),
+            'attention_deficit': row.get('attention_deficit', 'NORMAL')
         }
         vis.data_queue.put(data)
         time.sleep(0.01)  # Slow playback
     
-    print("\\n✓ File data loaded!")
-    print("Visualization showing how input is processed →  output")
+    print(f"\n✓ {dataset_type} data loaded!")
+    print("Visualization showing how input is processed → output")
     print("Close window to exit")
 
 # Start loading thread
