@@ -57,6 +57,55 @@ class AttentionDeficitVisualizer:
         # Setup figure
         self.setup_figure()
         
+    def setup_figure(self):
+        """Create the BCI interface"""
+        # WHITE background
+        self.fig = plt.figure(figsize=(12, 8), facecolor='white')
+        self.fig.canvas.manager.set_window_title('BCI - Attention Deficit')
+        
+        # Grid layout - with statistics panel
+        gs = GridSpec(6, 4, figure=self.fig, 
+                     hspace=1.2,      # Increased vertical spacing
+                     wspace=0.5,      # spacing
+                     left=0.08, right=0.92, 
+                     top=0.94,        # More top margin
+                     bottom=0.06)     # Less bottom margin
+        
+        # Waveform (BLACK background)
+        self.ax_waveform = self.fig.add_subplot(gs[0:2, :])
+        self.setup_waveform_plot()
+        
+        # Spectrum (BLACK background)
+        self.ax_spectrum = self.fig.add_subplot(gs[2:4, 0])
+        self.setup_spectrum_plot()
+        
+        # Statistics Panel
+        self.ax_stats_panel = self.fig.add_subplot(gs[2, 1:])
+        self.setup_statistics_panel()
+        
+        # Theta and Beta bands - single row each for thin rectangular borders
+        self.ax_theta = self.fig.add_subplot(gs[3, 1])  # Only row 3
+        self.ax_beta = self.fig.add_subplot(gs[3, 2])   # Only row 3
+        self.setup_feature_blocks()
+        
+        # Status panel (WHITE)
+        self.ax_status = self.fig.add_subplot(gs[3, 3])
+        self.setup_status_panel()
+        
+        # Attention deficit prediction (WHITE)
+        self.ax_health = self.fig.add_subplot(gs[4, :])
+        self.setup_health_panel()
+        
+        # Export buttons
+        self.ax_btn_screenshot = self.fig.add_subplot(gs[5, 0])
+        self.ax_btn_export = self.fig.add_subplot(gs[5, 1])
+        self.setup_export_buttons()
+        
+        # Add system info at bottom
+        info_text = f'Sampling Rate: {self.sampling_rate} Hz  |  Window: {self.window_size} samples  |  Display: {self.display_seconds}s  |  Dataset: Attention Deficit'
+        self.fig.text(0.5, 0.015, info_text, ha='center', va='bottom', 
+                     fontsize=8, color='black', fontweight='bold')
+        
     def setup_waveform_plot(self):
         """Setup waveform with BLACK axis text"""
         self.ax_waveform.set_facecolor('#0a0a0a')
