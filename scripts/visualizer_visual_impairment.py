@@ -58,8 +58,8 @@ class VisualImpairmentVisualizer:
         self.fig = plt.figure(figsize=(14, 9), facecolor='white')  # Slightly larger for stats
         self.fig.canvas.manager.set_window_title('BCI - Visual Impairment')
         
-        # Grid layout - with statistics panel
-        gs = GridSpec(6, 3, figure=self.fig, 
+        # Grid layout
+        gs = GridSpec(5, 3, figure=self.fig, 
                      hspace=1.0,
                      wspace=0.6,
                      left=0.08, right=0.92, 
@@ -74,26 +74,17 @@ class VisualImpairmentVisualizer:
         self.ax_spectrum = self.fig.add_subplot(gs[2:4, 0])
         self.setup_spectrum_plot()
         
-        # Statistics Panel (NEW!)
-        self.ax_stats_panel = self.fig.add_subplot(gs[2, 1:])
-        self.setup_statistics_panel()
-        
         # ONLY Alpha band power
-        self.ax_alpha = self.fig.add_subplot(gs[3, 1])
+        self.ax_alpha = self.fig.add_subplot(gs[2, 1])
         self.setup_feature_blocks()
         
         # Status panel
-        self.ax_status = self.fig.add_subplot(gs[3, 2])
+        self.ax_status = self.fig.add_subplot(gs[2, 2])
         self.setup_status_panel()
         
         # Visual impairment prediction
-        self.ax_health = self.fig.add_subplot(gs[4, :])
+        self.ax_health = self.fig.add_subplot(gs[3:5, :])
         self.setup_health_panel()
-        
-        # Export buttons
-        self.ax_btn_screenshot = self.fig.add_subplot(gs[5, 0])
-        self.ax_btn_export = self.fig.add_subplot(gs[5, 1])
-        self.setup_export_buttons()
         
         # Add system info at bottom
         info_text = f'Sampling Rate: {self.sampling_rate} Hz  |  Window: {self.window_size} samples  |  Display: {self.display_seconds}s  |  Dataset: Visual Impairment'

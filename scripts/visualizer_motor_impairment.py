@@ -60,8 +60,8 @@ class MotorImpairmentVisualizer:
         self.fig = plt.figure(figsize=(12, 8), facecolor='white')
         self.fig.canvas.manager.set_window_title('BCI - Motor Impairment')
         
-        # Grid layout - with statistics panel
-        gs = GridSpec(6, 3, figure=self.fig, 
+        # Grid layout
+        gs = GridSpec(5, 3, figure=self.fig, 
                      hspace=1.2,      # Increased vertical spacing
                      wspace=0.6,      # Increased horizontal spacing
                      left=0.08, right=0.92, 
@@ -70,38 +70,6 @@ class MotorImpairmentVisualizer:
         
         # Waveform (BLACK background)
         self.ax_waveform = self.fig.add_subplot(gs[0:2, :])
-        self.setup_waveform_plot()
-        
-        # Spectrum (BLACK background)
-        self.ax_spectrum = self.fig.add_subplot(gs[2:4, 0])
-        self.setup_spectrum_plot()
-        
-        # Statistics Panel
-        self.ax_stats_panel = self.fig.add_subplot(gs[2, 1:])
-        self.setup_statistics_panel()
-        
-        # ONLY Beta band power
-        self.ax_beta = self.fig.add_subplot(gs[3, 1])
-        self.setup_feature_blocks()
-        
-        # Status panel
-        self.ax_status = self.fig.add_subplot(gs[3, 2])
-        self.setup_status_panel()
-        
-        # Motor impairment prediction
-        self.ax_health = self.fig.add_subplot(gs[4, :])
-        self.setup_health_panel()
-        
-        # Export buttons
-        self.ax_btn_screenshot = self.fig.add_subplot(gs[5, 0])
-        self.ax_btn_export = self.fig.add_subplot(gs[5, 1])
-        self.setup_export_buttons()
-        
-        # Add system info at bottom
-        info_text = f'Sampling Rate: {self.sampling_rate} Hz  |  Window: {self.window_size} samples  |  Display: {self.display_seconds}s  |  Dataset: Motor Impairment'
-        self.fig.text(0.5, 0.015, info_text, ha='center', va='bottom', 
-                     fontsize=8, color='black', fontweight='bold')
-        
     def setup_waveform_plot(self):
         """Setup waveform with BLACK axis text"""
         self.ax_waveform.set_facecolor('#0a0a0a')
