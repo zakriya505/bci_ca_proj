@@ -10,10 +10,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.gridspec import GridSpec
+from matplotlib.widgets import Button
 from scipy.fft import fft, fftfreq
 import queue
 import time
 from collections import deque
+from datetime import datetime
+import csv
 
 class MotorImpairmentVisualizer:
     def __init__(self):
@@ -37,6 +40,12 @@ class MotorImpairmentVisualizer:
         # Only motor impairment prediction
         self.motor_impairment = "NORMAL"
         
+        # SESSION STATISTICS
+        self.session_start = datetime.now()
+        self.beta_values = []
+        self.prediction_counts = {'NORMAL': 0, 'BORDERLINE': 0, 'IMPAIRED': 0}
+        self.total_samples = 0
+        
         # Data queue
         self.data_queue = queue.Queue()
         
@@ -49,8 +58,8 @@ class MotorImpairmentVisualizer:
         self.fig = plt.figure(figsize=(12, 8), facecolor='white')
         self.fig.canvas.manager.set_window_title('BCI - Motor Impairment')
         
-        # Grid layout - Better spacing to prevent overlap
-        gs = GridSpec(5, 3, figure=self.fig, 
+        # Grid layout - with statistics panel
+        gs = GridSpec(6, 3, figure=self.fig, 
                      hspace=1.2,      # Increased vertical spacing
                      wspace=0.6,      # Increased horizontal spacing
                      left=0.08, right=0.92, 
@@ -65,17 +74,26 @@ class MotorImpairmentVisualizer:
         self.ax_spectrum = self.fig.add_subplot(gs[2:4, 0])
         self.setup_spectrum_plot()
         
-        # ONLY Beta band power - single row for thin rectangular border
-        self.ax_beta = self.fig.add_subplot(gs[3, 1])  # Only row 3, not 2:4
+        # Statistics Panel
+        self.ax_stats_panel = self.fig.add_subplot(gs[2, 1:])
+        self.setup_statistics_panel()
+        
+        # ONLY Beta band power
+        self.ax_beta = self.fig.add_subplot(gs[3, 1])
         self.setup_feature_blocks()
         
-        # Status panel (WHITE)
-        self.ax_status = self.fig.add_subplot(gs[2:4, 2])
+        # Status panel
+        self.ax_status = self.fig.add_subplot(gs[3, 2])
         self.setup_status_panel()
         
-        # Motor impairment prediction (WHITE)
+        # Motor impairment prediction
         self.ax_health = self.fig.add_subplot(gs[4, :])
         self.setup_health_panel()
+        
+        # Export buttons
+        self.ax_btn_screenshot = self.fig.add_subplot(gs[5, 0])
+        self.ax_btn_export = self.fig.add_subplot(gs[5, 1])
+        self.setup_export_buttons()
         
         # Add system info at bottom
         info_text = f'Sampling Rate: {self.sampling_rate} Hz  |  Window: {self.window_size} samples  |  Display: {self.display_seconds}s  |  Dataset: Motor Impairment'
@@ -167,7 +185,72 @@ class MotorImpairmentVisualizer:
             'stats': self.ax_status.text(0.5, 0.35, 'Beta Power:\n0.25', 
                                          ha='center', va='top', fontsize=10, 
                                          color='#333333', fontweight='bold'),
-        }
+        }\r
+    \r
+    def setup_statistics_panel(self):\r
+        """Setup session statistics panel"""\r
+        self.ax_stats_panel.set_facecolor('#f8f8f8')\r
+        self.ax_stats_panel.axis('off')\r
+        self.ax_stats_panel.set_title('📊 Session Statistics', fontsize=10, color='#0066cc', fontweight='bold', loc='left')\r
+        \r
+        self.stats_text = self.ax_stats_panel.text(\r
+            0.5, 0.5, 'Session: 0s | Beta Avg: 0.00 | Min: 0.00 | Max: 0.00 | Predictions: N:0 B:0 I:0', \r
+            ha='center', va='center', fontsize=9, color='#333333', fontweight='bold')\r
+    \r
+    def setup_export_buttons(self):\r
+        """Setup export control buttons"""\r
+        self.ax_btn_screenshot.axis('off')\r
+        self.ax_btn_export.axis('off')\r
+        \r
+        self.btn_screenshot = Button(self.ax_btn_screenshot, '💾 Save Screenshot', color='#4CAF50', hovercolor='#45a049')\r
+        self.btn_screenshot.label.set_fontsize(9)\r
+        self.btn_screenshot.label.set_color('white')\r
+        self.btn_screenshot.on_clicked(self.save_screenshot)\r
+        \r
+        self.btn_export = Button(self.ax_btn_export, '📁 Export Session Data', color='#2196F3', hovercolor='#0b7dda')\r
+        self.btn_export.label.set_fontsize(9)\r
+        self.btn_export.label.set_color('white')\r
+        self.btn_export.on_clicked(self.export_session_data)\r
+    \r
+    def save_screenshot(self, event):\r
+        """Save current visualization as PNG"""\r
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')\r
+        filename = f'motor_impairment_session_{timestamp}.png'\r
+        self.fig.savefig(filename, dpi=150, bbox_inches='tight', facecolor='white')\r
+        print(f'\n✅ Screenshot saved: {filename}')\r
+    \r
+    def export_session_data(self, event):\r
+        """Export session data to CSV"""\r
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')\r
+        filename = f'motor_impairment_data_{timestamp}.csv'\r
+        \r
+        with open(filename, 'w', newline='') as f:\r
+            writer = csv.writer(f)\r
+            writer.writerow(['Metric', 'Value'])\r
+            writer.writerow(['Session Start', self.session_start.strftime('%Y-%m-%d %H:%M:%S')])\r
+            writer.writerow(['Session Duration (s)', (datetime.now() - self.session_start).total_seconds()])\r
+            writer.writerow(['Total Samples', self.total_samples])\r
+            writer.writerow(['Beta Avg', np.mean(self.beta_values) if self.beta_values else 0])\r
+            writer.writerow(['Beta Min', np.min(self.beta_values) if self.beta_values else 0])\r
+            writer.writerow(['Beta Max', np.max(self.beta_values) if self.beta_values else 0])\r
+            writer.writerow(['Predictions NORMAL', self.prediction_counts['NORMAL']])\r
+            writer.writerow(['Predictions BORDERLINE', self.prediction_counts['BORDERLINE']])\r
+            writer.writerow(['Predictions IMPAIRED', self.prediction_counts['IMPAIRED']])\r
+        print(f'\n✅ Session data exported: {filename}')\r
+    \r
+    def update_statistics(self):\r
+        """Update statistics display"""\r
+        duration = (datetime.now() - self.session_start).total_seconds()\r
+        avg_beta = np.mean(self.beta_values) if self.beta_values else 0\r
+        min_beta = np.min(self.beta_values) if self.beta_values else 0\r
+        max_beta = np.max(self.beta_values) if self.beta_values else 0\r
+        \r
+        stats_text = (f'Session: {duration:.0f}s | '\r
+                     f'Beta Avg: {avg_beta:.2f} Min: {min_beta:.2f} Max: {max_beta:.2f} | '\r
+                     f'Predictions N:{self.prediction_counts["NORMAL"]} '\r
+                     f'B:{self.prediction_counts["BORDERLINE"]} I:{self.prediction_counts["IMPAIRED"]}')\r
+        self.stats_text.set_text(stats_text)\r
+    
     
     def compute_fft(self, signal_data):
         """Compute FFT"""
