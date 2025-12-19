@@ -14,9 +14,9 @@ void print_banner(void) {
     printf("\n");
     printf("%s╔═══════════════════════════════════════════════════════════════╗%s\n", COLOR_CYAN, COLOR_RESET);
     printf("%s║                                                               ║%s\n", COLOR_CYAN, COLOR_RESET);
-    printf("%s║        RISC-V Brain-Computer Interface (BCI) System          ║%s\n", COLOR_CYAN, COLOR_RESET);
+    printf("%s║        RISC-V Brain-Computer Interface (BCI) System           ║%s\n", COLOR_CYAN, COLOR_RESET);
     printf("%s║                                                               ║%s\n", COLOR_CYAN, COLOR_RESET);
-    printf("%s║        Embedded System for Simple Command Recognition        ║%s\n", COLOR_CYAN, COLOR_RESET);
+    printf("%s║        Embedded System for Simple Command Recognition         ║%s\n", COLOR_CYAN, COLOR_RESET);
     printf("%s║                                                               ║%s\n", COLOR_CYAN, COLOR_RESET);
     printf("%s╚═══════════════════════════════════════════════════════════════╝%s\n", COLOR_CYAN, COLOR_RESET);
     printf("\n");

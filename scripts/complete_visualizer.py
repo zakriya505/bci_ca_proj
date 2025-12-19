@@ -52,11 +52,24 @@ class RISCVSimulator:
         self.total_instructions += butterflies * 6 + log_n * 2
         self.total_cycles += self.asm_optimized_cycles
         
-        self.cache_hits += int(butterflies * 0.85)
-        self.cache_misses += int(butterflies * 0.15)
-        self.pipeline_stalls += int(butterflies * 0.05)
-        self.branch_predictions += int(log_n * 0.92)
-        self.branch_mispredictions += int(log_n * 0.08)
+        # Shared correlation factor (-1.0 to 1.0) to make metrics move in sync
+        correlation_factor = np.random.uniform(-1, 1)
+        
+        # Dynamic Cache Simulation (80-85% range)
+        cache_hit_rate = 0.825 + (correlation_factor * 0.025)
+        self.cache_hits += int(butterflies * cache_hit_rate)
+        self.cache_misses += int(butterflies * (1 - cache_hit_rate))
+        
+        # Dynamic Stall Simulation (linked to cache misses)
+        stall_rate = 0.03 + (1 - cache_hit_rate) * 0.2
+        self.pipeline_stalls += int(butterflies * stall_rate)
+        
+        # Dynamic Branch Simulation (90-97% range)
+        branch_acc = 0.935 + (correlation_factor * 0.035)
+        # Scale up branch count for more realistic percentage display in mock
+        pseudo_branches = log_n * 10
+        self.branch_predictions += int(pseudo_branches * branch_acc)
+        self.branch_mispredictions += max(1, int(pseudo_branches * (1 - branch_acc)))
         
     def get_ipc(self):
         return self.total_instructions / max(1, self.total_cycles)
@@ -127,8 +140,7 @@ class CompleteBCIVisualizer:
         # Row 1
         self.ax_spectrum = self.fig.add_subplot(gs[1, 0])
         self.ax_bands = self.fig.add_subplot(gs[1, 1])
-        self.ax_health = self.fig.add_subplot(gs[1, 2])
-        self.ax_status = self.fig.add_subplot(gs[1, 3])
+        self.ax_health = self.fig.add_subplot(gs[1, 2:4]) # Expanded Health panel
         self.setup_row1()
         
         # Row 2
@@ -179,22 +191,12 @@ class CompleteBCIVisualizer:
         # Health
         self.ax_health.set_facecolor('#f0f4f8')
         self.ax_health.axis('off')
-        self.ax_health.set_title('Health', fontsize=10, fontweight='bold', color='#2980b9', pad=5)
+        self.ax_health.set_title('Health Predictions', fontsize=10, fontweight='bold', color='#2980b9', pad=5)
         self.health_txt = {
             'v': self.ax_health.text(0.5, 0.72, 'Visual: NORMAL', ha='center', fontsize=10, color='#27ae60', fontweight='bold'),
             'm': self.ax_health.text(0.5, 0.42, 'Motor: NORMAL', ha='center', fontsize=10, color='#27ae60', fontweight='bold'),
             'a': self.ax_health.text(0.5, 0.12, 'Attn: NORMAL', ha='center', fontsize=10, color='#27ae60', fontweight='bold')
         }
-        
-        # Status
-        self.ax_status.set_facecolor('#f0f4f8')
-        self.ax_status.axis('off')
-        self.ax_status.set_title('Status', fontsize=10, fontweight='bold', pad=5)
-        self.led = plt.Circle((0.25, 0.5), 0.15, color='#c0392b', ec='#333', lw=2)
-        self.ax_status.add_patch(self.led)
-        self.ax_status.set_xlim(0, 1)
-        self.ax_status.set_ylim(0, 1)
-        self.cmd_txt = self.ax_status.text(0.65, 0.5, 'NONE', ha='center', va='center', fontsize=12, fontweight='bold')
         
     def setup_row2(self):
         # Pie
@@ -293,6 +295,7 @@ class CompleteBCIVisualizer:
         for bar, val in zip(self.bars, [self.current_theta, self.current_alpha, self.current_beta, self.current_gamma]):
             bar.set_height(val)
             
+        # Update health prediction text
         colors = {'NORMAL': '#27ae60', 'BORDERLINE': '#f39c12', 'IMPAIRED': '#c0392b'}
         self.health_txt['v'].set_text(f'Visual: {self.visual_impairment}')
         self.health_txt['v'].set_color(colors.get(self.visual_impairment, '#333'))
@@ -300,9 +303,6 @@ class CompleteBCIVisualizer:
         self.health_txt['m'].set_color(colors.get(self.motor_impairment, '#333'))
         self.health_txt['a'].set_text(f'Attn: {self.attention_deficit}')
         self.health_txt['a'].set_color(colors.get(self.attention_deficit, '#333'))
-        
-        self.led.set_facecolor('#27ae60' if self.led_state else '#c0392b')
-        self.cmd_txt.set_text(self.current_command)
         
         if frame % 20 == 0:
             self.ax_pie.clear()
