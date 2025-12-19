@@ -51,12 +51,11 @@ class UnifiedBCIVisualizer:
         
         # Visualization buttons
         buttons = [
-            ("📊 General EEG", "sample_eeg_data.csv", "#4CAF50"),
-            ("👁️ Visual Impairment", "visual_impairment_data.csv", "#9C27B0"),
+            ("👁️ Visual Impairment", "visual_impairment_data.csv", "#2196F3"),
             ("🏃 Motor Impairment", "motor_impairment_data.csv", "#2196F3"),
-            ("🎯 Attention Deficit", "attention_deficit_data.csv", "#FF9800"),
-            ("📈 Compare All", "comparison", "#E91E63"),
-            ("🖥️ Complete CA View", "complete", "#00BCD4"),
+            ("🎯 Attention Deficit", "attention_deficit_data.csv", "#2196F3"),
+            ("📈 Compare All", "comparison", "#2196F3"),
+            ("🖥️ Complete CA View", "complete", "#2196F3"),
         ]
         
         for text, dataset, color in buttons:
